@@ -1,0 +1,48 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/ServiceDefinitions.json
+android/.gradle/
+android/app/debug
+android/app/profile
+android/app/release
+*.iml
+*.lock
+*.log
+*.tmp
+*.swp
+.idea/
+.vscode/
+*.jks
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+.env
+.env.*
+coverage/
+logs/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# General
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Others
+*.orig
