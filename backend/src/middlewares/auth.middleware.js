@@ -35,14 +35,15 @@ export const validateRegistration = async (req, res, next) => {
   next();
 };
 
-export function validateLogin(req, res, next) {
+export async function validateLogin(req, res, next) {
   const { email, password } = req.body;
   console.log("Validating login data:", req.body);
   if (!email || !password) {
     console.log("Missing email or password");
     return res.status(400).json({ message: "Email and password are required" });
   }
-  const result = userExists(email, password);
+  const result = await userExists(email, password);
+  console.log("Login validation result:", result);
   if (!result.success) {
     console.log(result.message);
     return res.status(401).json({ message: result.message });

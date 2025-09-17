@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'tokenService.dart'; // Import our token service
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,7 +24,26 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() async {
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingLogin();
+  }
+
+  // Check if user is already logged in
+  Future<void> _checkExistingLogin() async {
+    try {
+      final isLoggedIn = await TokenService.isLoggedIn();
+      if (isLoggedIn && mounted) {
+        // User is already logged in, navigate to main app
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('Error checking login status: $e');
+    }
+  }
+
+  Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -41,65 +61,126 @@ class _LoginPageState extends State<LoginPage> {
           }),
         );
 
-        setState(() {
-          _isLoading = false;
-        });
-
         final responseData = json.decode(response.body);
 
         if (response.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(responseData['message'] ?? 'Login successful'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          // Handle successful login
+          final accessToken = responseData['accessToken'];
+          final refreshToken = responseData['refreshToken'];
+          if (accessToken != null && refreshToken != null) {
+            // Store tokens using TokenService
+            await TokenService.storeTokens(accessToken, refreshToken);
 
-          // Navigate to main app screen
-          Navigator.pop(context);
+            if (mounted) {
+              _showSuccessMessage(responseData['message']);
+
+              // Navigate to main app screen
+              Navigator.pop(context);
+            }
+          } else {
+            if (mounted) {
+              _showErrorMessage('Invalid response from server');
+            }
+          }
         } else {
-          // Handle API error responses
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(responseData['message'] ?? 'Login failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          // Handle login failure
+          if (mounted) {
+            _showErrorMessage(responseData['message'] ?? 'Login failed');
+          }
+        }
+      } on AuthException catch (e) {
+        if (mounted) {
+          _showErrorMessage(e.message);
+        }
+      } on NetworkException catch (e) {
+        if (mounted) {
+          _showErrorMessage('Network error: Please check your connection');
         }
       } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        // Handle network or other errors
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Network error: Please check your connection'),
-            backgroundColor: Colors.red,
-          ),
-        );
-
-        // Debug print for development
+        if (mounted) {
+          _showErrorMessage('An unexpected error occurred');
+        }
         print('Login error: ${e.toString()}');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
 
-  void _handleRegister() {
-    // Navigate to registration page or show registration form
+  void _showSuccessMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Registration functionality to be implemented'),
-        backgroundColor: Colors.blue,
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
 
-  void _handleForgotPassword() {
+  void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Forgot password functionality to be implemented'),
-        backgroundColor: Colors.orange,
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _handleRegister() {
+    // Navigate to registration page when implemented
+    Navigator.pushNamed(context, '/register').catchError((error) {
+      _showErrorMessage('Registration page not available yet');
+    });
+  }
+
+  void _handleForgotPassword() {
+    // Navigate to forgot password page when implemented
+    Navigator.pushNamed(context, '/forgot-password').catchError((error) {
+      _showErrorMessage('Forgot password feature coming soon');
+    });
+  }
+
+  Future<void> _handleGuestLogin() async {
+    // Optional: Allow guest access or demo mode
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[800],
+        title: const Text(
+          'Guest Access',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Continue without an account? Some features may be limited.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to main app
+            },
+            child: const Text('Continue'),
+          ),
+        ],
       ),
     );
   }
@@ -127,7 +208,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const SizedBox(height: 20),
 
-                // Title
+                // Welcome text
                 const Text(
                   'Welcome Back!',
                   style: TextStyle(
@@ -136,34 +217,46 @@ class _LoginPageState extends State<LoginPage> {
                     color: Colors.white,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
                   'Sign in to your account',
                   style: TextStyle(fontSize: 16, color: Colors.white70),
                 ),
-
                 const SizedBox(height: 50),
 
-                // Email Field
+                // Email field
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: Colors.white),
+                  enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Email',
+                    labelStyle: const TextStyle(color: Colors.white70),
                     hintText: 'Enter your email',
-                    prefixIcon: const Icon(Icons.email_outlined),
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      color: Colors.white70,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: Colors.grey[700]!),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.blue),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.red),
                     ),
                   ),
                   validator: (value) {
@@ -172,45 +265,62 @@ class _LoginPageState extends State<LoginPage> {
                     }
                     if (!RegExp(
                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                    ).hasMatch(value)) {
+                    ).hasMatch(value.trim())) {
                       return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
 
-                // Password Field
+                // Password field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
+                  style: const TextStyle(color: Colors.white),
+                  enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    labelStyle: const TextStyle(color: Colors.white70),
                     hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    prefixIcon: const Icon(
+                      Icons.lock_outline,
+                      color: Colors.white70,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _isPasswordVisible
                             ? Icons.visibility_off
                             : Icons.visibility,
+                        color: Colors.white70,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: Colors.grey[700]!),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.blue),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.red),
                     ),
                   ),
                   validator: (value) {
@@ -223,24 +333,22 @@ class _LoginPageState extends State<LoginPage> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 12),
 
-                // Forgot Password
+                // Forgot password link
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: _handleForgotPassword,
+                    onPressed: _isLoading ? null : _handleForgotPassword,
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(color: Colors.blue),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 30),
 
-                // Login Button
+                // Sign in button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -250,6 +358,7 @@ class _LoginPageState extends State<LoginPage> {
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       elevation: 2,
+                      disabledBackgroundColor: Colors.grey[700],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -272,10 +381,33 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                   ),
                 ),
+                const SizedBox(height: 20),
 
+                // Guest login option
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: _isLoading ? null : _handleGuestLogin,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.grey[600]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Continue as Guest',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 30),
 
-                // Don't have account
+                // Sign up link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -284,7 +416,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Colors.grey),
                     ),
                     TextButton(
-                      onPressed: _handleRegister,
+                      onPressed: _isLoading ? null : _handleRegister,
                       child: const Text(
                         'Sign Up',
                         style: TextStyle(
@@ -294,6 +426,15 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 20),
+
+                // Optional: App version or additional info
+                Center(
+                  child: Text(
+                    'Secure login with encrypted storage',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
                 ),
               ],
             ),

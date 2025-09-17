@@ -1,6 +1,6 @@
 import pool from "../config/database.config.js";
 import bcrypt from "bcrypt";
-
+import jwt from "jsonwebtoken";
 export const registerUser = async (req, res) => {
   try {
     console.log("Registering user with data:", req.body);
@@ -53,10 +53,12 @@ export const loginUser = (req, res) => {
       expiresIn: "7d",
     }
   );
-
+  console.log("User logged in, tokens generated");
+  console.log({ accessToken, refreshToken });
   res.status(200).json({
     accessToken,
     refreshToken,
+    message: "Login successful",
     user: { ...payload },
   });
 };

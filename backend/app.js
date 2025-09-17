@@ -4,9 +4,6 @@ import bodyParser from "body-parser";
 import morgan from "morgan";
 import helmet from "helmet";
 import routes from "./src/routes/index.js";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
