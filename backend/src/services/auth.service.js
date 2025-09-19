@@ -40,3 +40,13 @@ export async function userExists(email, password) {
     message: match ? "Authentication successful" : "Invalid password",
   };
 }
+
+export async function getUserByEmail(email) {
+  const res = await pool.query("SELECT user_id FROM users WHERE email = $1", [
+    email,
+  ]);
+  if (res.rows.length === 0) {
+    return null;
+  }
+  return res.rows[0].user_id;
+}

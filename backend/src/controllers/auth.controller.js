@@ -1,6 +1,7 @@
 import pool from "../config/database.config.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { getUserByEmail } from "../services/auth.service.js";
 export const registerUser = async (req, res) => {
   try {
     console.log("Registering user with data:", req.body);
@@ -16,7 +17,7 @@ export const registerUser = async (req, res) => {
         req.body.email,
         req.body.phone,
         hashedPassword,
-        req.file.path || null,
+        req.file?.path || null,
       ]
     );
 
@@ -31,14 +32,14 @@ export const registerUser = async (req, res) => {
   }
 };
 
-export const loginUser = (req, res) => {
+export const loginUser = async (req, res) => {
   console.log("Logging in user with data:", req.body);
-  const { user_id, email, first_name, last_name } = req.body;
+  const { email } = req.body;
+  const user_id = await getUserByEmail(email);
+  console.log("user_id fetched:", user_id);
+
   const payload = {
     user_id,
-    email,
-    first_name,
-    last_name,
   };
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: "30m",
@@ -53,12 +54,39 @@ export const loginUser = (req, res) => {
       expiresIn: "7d",
     }
   );
-  console.log("User logged in, tokens generated");
-  console.log({ accessToken, refreshToken });
   res.status(200).json({
     accessToken,
     refreshToken,
     message: "Login successful",
     user: { ...payload },
+  });
+};
+
+export const refreshAccessToken = (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ message: "Refresh token is required" });
+  }
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      console.error("Error verifying refresh token:", err);
+      return res.status(401).json({ message: "Invalid refresh token" });
+    } else {
+      if (decoded.type !== "refresh") {
+        return res.status(401).json({ message: "Invalid token type" });
+      } else {
+        const { user_id } = req.body;
+        const payload = {
+          user_id,
+        };
+        const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+          expiresIn: "30m",
+        });
+        console.log("Access token refreshed for user:", decoded.user_id);
+        return res
+          .status(200)
+          .json({ accessToken: newAccessToken, message: "Token refreshed" });
+      }
+    }
   });
 };

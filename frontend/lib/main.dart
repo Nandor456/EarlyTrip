@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'register.dart';
+import 'tokenService.dart';
+import 'chat.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Login App',
+      title: 'EarlyTrip',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
@@ -70,8 +72,32 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingLogin();
+  }
+
+  Future<void> _checkExistingLogin() async {
+    try {
+      final isLoggedIn = await TokenService.isLoggedIn();
+      if (isLoggedIn && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainChatScreen()),
+        );
+      }
+    } catch (e) {
+      print('Error checking login status: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,16 +198,16 @@ class HomePage extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // Guest Mode Button
+                // Guest Mode Button - Navigate directly to chat system
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: OutlinedButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Continue as Guest'),
-                          backgroundColor: Colors.green,
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MainChatScreen(),
                         ),
                       );
                     },

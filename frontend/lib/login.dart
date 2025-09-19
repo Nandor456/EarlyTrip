@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tokenService.dart'; // Import our token service
+import 'chat.dart'; // Add this line
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -74,8 +75,10 @@ class _LoginPageState extends State<LoginPage> {
             if (mounted) {
               _showSuccessMessage(responseData['message']);
 
-              // Navigate to main app screen
-              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const MainChatScreen()),
+              );
             }
           } else {
             if (mounted) {
@@ -92,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) {
           _showErrorMessage(e.message);
         }
-      } on NetworkException catch (e) {
+      } on NetworkException {
         if (mounted) {
           _showErrorMessage('Network error: Please check your connection');
         }

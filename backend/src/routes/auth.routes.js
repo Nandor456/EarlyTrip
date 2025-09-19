@@ -5,6 +5,7 @@ import {
   validateLogin,
   validateRegistration,
 } from "../middlewares/auth.middleware.js";
+import { refreshAccessToken } from "../controllers/auth.controller.js";
 const router = express.Router();
 
 router.post(
@@ -14,5 +15,6 @@ router.post(
   registerUser
 );
 router.post("/login", validateLogin, loginUser);
+router.post("/refresh", refreshAccessToken);
 
 export default router;
