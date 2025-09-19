@@ -1,6 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 class TokenService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
@@ -126,6 +127,7 @@ class ApiService {
 
     // If token expired, try to refresh
     if (response.statusCode == 401) {
+      print('-------------alma--------------');
       try {
         final responseBody = json.decode(response.body);
         final errorCode = responseBody['code'];

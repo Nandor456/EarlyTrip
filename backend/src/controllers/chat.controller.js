@@ -35,37 +35,68 @@ export function createChatGroup(req, res) {
       .status(400)
       .json({ message: "At least one memberId must be provided" });
   }
+
   const creatorId = req.user.user_id;
   const queryInsertGroup = `
-        INSERT INTO chat_groups (name, admin_id, created_at)
-        VALUES ($1, $2, NOW())
-        RETURNING group_id
-    `;
+    INSERT INTO chat_groups (name, admin_id, created_at)
+    VALUES ($1, $2, NOW())
+    RETURNING group_id
+  `;
+
   pool.query(queryInsertGroup, [groupName, creatorId], (err, result) => {
     if (err) {
       console.error("Error creating group:", err);
       return res.status(500).json({ message: "Internal server error" });
     }
+
     const newGroupId = result.rows[0].group_id;
+
+    // Include creator in the members list
+    const allMemberIds = [...memberIds, creatorId];
+
+    // Create the VALUES clause dynamically
+    const values = [];
+    const params = [];
+
+    allMemberIds.forEach((memberId, index) => {
+      const paramIndex1 = index * 2 + 1;
+      const paramIndex2 = index * 2 + 2;
+      values.push(`($${paramIndex1}, $${paramIndex2})`);
+      params.push(newGroupId, memberId);
+    });
+
     const queryInsertMemberships = `
-            INSERT INTO group_memberships (group_id, user_id)
-            VALUES ($1, $2)
-        `;
-    const membershipValues = memberIds.map((id) => [newGroupId, id]);
-    membershipValues.push([newGroupId, creatorId]);
-    console.log(
-      "Adding members to group:",
-      newGroupId,
-      membershipValues.flat()
-    );
-    pool.query(queryInsertMemberships, membershipValues.flat(), (err) => {
+      INSERT INTO group_memberships (group_id, user_id)
+      VALUES ${values.join(", ")}
+    `;
+
+    console.log("Query:", queryInsertMemberships);
+    console.log("Params:", params);
+
+    pool.query(queryInsertMemberships, params, (err) => {
       if (err) {
         console.error("Error adding members to group:", err);
-
         return res.status(500).json({ message: "Internal server error" });
       }
-      console.log("Group created with ID:", newGroupId);
-      res.status(201).json({ groupId: newGroupId });
+
+      // Return the complete group data that matches your frontend expectation
+      const queryGetGroup = `
+        SELECT group_id, name, admin_id, created_at
+        FROM chat_groups 
+        WHERE group_id = $1
+      `;
+
+      pool.query(queryGetGroup, [newGroupId], (err, groupResult) => {
+        if (err) {
+          console.error("Error fetching created group:", err);
+          return res.status(500).json({ message: "Internal server error" });
+        }
+
+        console.log("Group created successfully:", groupResult.rows[0]);
+        res.status(201).json({
+          groups: groupResult.rows[0],
+        });
+      });
     });
   });
 }

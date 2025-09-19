@@ -63,6 +63,7 @@ export const loginUser = async (req, res) => {
 };
 
 export const refreshAccessToken = (req, res) => {
+  console.log("Refreshing access token with data:", req.body);
   const { refreshToken } = req.body;
   if (!refreshToken) {
     return res.status(400).json({ message: "Refresh token is required" });

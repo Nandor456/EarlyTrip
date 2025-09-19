@@ -1,59 +1,48 @@
-// chat_system.dart - Database integrated chat system
+// chat_system.dart - Database integrated chat system with ApiService integration
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'tokenService.dart'; // Import your existing token service
+import 'tokenService.dart';
 
-// API Service for chat operations
+// Updated API Service for chat operations using the centralized ApiService
 class ChatApiService {
-  static const String baseUrl =
-      'http://10.0.2.2:3000/api'; // Replace with your API base URL
-
-  static Future<Map<String, String>> _getHeaders() async {
-    final token = await TokenService.getAccessToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-
   // Get user's chat groups
   static Future<List<ChatGroup>> getUserChatGroups() async {
     try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/chat/groups'),
-        headers: headers,
-      );
+      final response = await ApiService.authenticatedRequest('/chat/groups');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return (data['groups'] as List)
-            .map((group) => ChatGroup.fromJson(group))
-            .toList();
-      } else {
-        throw Exception('Failed to load chat groups');
-      }
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return (data['groups'] as List)
+          .map((group) => ChatGroup.fromJson(group))
+          .toList();
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error loading chat groups: $e');
     }
   }
 
   static Future<User> getUserData() async {
     try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/users/profile'),
-        headers: headers,
-      );
+      final response = await ApiService.authenticatedRequest('/users/profile');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return User.fromJson(data['user']);
-      } else {
-        throw Exception('Failed to load user data');
-      }
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return User.fromJson(data['user']);
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error loading user data: $e');
     }
   }
@@ -65,23 +54,23 @@ class ChatApiService {
     int offset = 0,
   }) async {
     try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse(
-          '$baseUrl/chat/groups/$groupId/messages?limit=$limit&offset=$offset',
-        ),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId/messages?limit=$limit&offset=$offset',
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return (data['messages'] as List)
-            .map((message) => Message.fromJson(message))
-            .toList();
-      } else {
-        throw Exception('Failed to load messages');
-      }
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return (data['messages'] as List)
+          .map((message) => Message.fromJson(message))
+          .toList();
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error loading messages: $e');
     }
   }
@@ -94,26 +83,29 @@ class ChatApiService {
     String? mediaUrl,
   }) async {
     try {
-      final headers = await _getHeaders();
-      final body = json.encode({
+      final body = {
         'content': content,
         'type': type.toString().split('.').last,
         'mediaUrl': mediaUrl,
-      });
+      };
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat/groups/$groupId/messages'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId/messages',
+        method: 'POST',
         body: body,
       );
 
-      if (response.statusCode == 201) {
-        final data = json.decode(response.body);
-        return Message.fromJson(data['message']);
-      } else {
-        throw Exception('Failed to send message');
-      }
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return Message.fromJson(data['message']);
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error sending message: $e');
     }
   }
@@ -124,21 +116,25 @@ class ChatApiService {
     required List<int> memberIds,
   }) async {
     try {
-      final headers = await _getHeaders();
-      final body = json.encode({'groupName': name, 'memberIds': memberIds});
+      final body = {'groupName': name, 'memberIds': memberIds};
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat/groups'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups',
+        method: 'POST',
         body: body,
       );
-      final data = json.decode(response.body);
-      if (response.statusCode == 201) {
-        return ChatGroup.fromJson(data['groups']);
-      } else {
-        throw Exception(data['message'] ?? 'Failed to create group');
-      }
+
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return ChatGroup.fromJson(data['groups']);
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error creating group: $e');
     }
   }
@@ -146,43 +142,21 @@ class ChatApiService {
   // Get all users for group creation
   static Future<List<User>> getAllUsers() async {
     try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/users'),
-        headers: headers,
-      );
+      final response = await ApiService.authenticatedRequest('/users');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return (data['users'] as List)
-            .map((user) => User.fromJson(user))
-            .toList();
-      } else if (response.statusCode == 401) {
-        final body = json.decode(response.body);
-        if (body['code'] == 'TOKEN_EXPIRED') {
-          // Refresh token
-          final newAccessToken = await _refreshToken();
-          if (newAccessToken != null) {
-            // Retry request with new token
-            final retryHeaders = await _getHeaders(newAccessToken);
-            final retryResponse = await http.get(
-              Uri.parse('$baseUrl/users'),
-              headers: retryHeaders,
-            );
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
 
-            if (retryResponse.statusCode == 200) {
-              final data = json.decode(retryResponse.body);
-              return (data['users'] as List)
-                  .map((user) => User.fromJson(user))
-                  .toList();
-            }
-          }
-        }
-        throw Exception('Failed to load users');
-      } else {
-        throw Exception('Failed to load users');
-      }
+      return (data['users'] as List)
+          .map((user) => User.fromJson(user))
+          .toList();
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error loading users: $e');
     }
   }
@@ -190,21 +164,23 @@ class ChatApiService {
   // Get group members
   static Future<List<User>> getGroupMembers(String groupId) async {
     try {
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/chat/groups/$groupId/members'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId/members',
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return (data['members'] as List)
-            .map((user) => User.fromJson(user))
-            .toList();
-      } else {
-        throw Exception('Failed to load group members');
-      }
+      final data = ApiResponseHandler.handleResponse(response, (data) => data);
+
+      return (data['members'] as List)
+          .map((user) => User.fromJson(user))
+          .toList();
     } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
       throw Exception('Error loading group members: $e');
     }
   }
@@ -215,17 +191,17 @@ class ChatApiService {
     List<String> memberIds,
   ) async {
     try {
-      final headers = await _getHeaders();
-      final body = json.encode({'memberIds': memberIds});
+      final body = {'memberIds': memberIds};
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat/groups/$groupId/members'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId/members',
+        method: 'POST',
         body: body,
       );
 
       return response.statusCode == 200;
     } catch (e) {
+      print('Error adding members to group: $e');
       return false;
     }
   }
@@ -236,15 +212,14 @@ class ChatApiService {
     String memberId,
   ) async {
     try {
-      final headers = await _getHeaders();
-
-      final response = await http.delete(
-        Uri.parse('$baseUrl/chat/groups/$groupId/members/$memberId'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId/members/$memberId',
+        method: 'DELETE',
       );
 
       return response.statusCode == 200;
     } catch (e) {
+      print('Error removing member from group: $e');
       return false;
     }
   }
@@ -256,15 +231,13 @@ class ChatApiService {
     String? description,
   }) async {
     try {
-      final headers = await _getHeaders();
-      final body = json.encode({
-        if (name != null) 'name': name,
-        if (description != null) 'description': description,
-      });
+      final body = <String, dynamic>{};
+      if (name != null) body['name'] = name;
+      if (description != null) body['description'] = description;
 
-      final response = await http.put(
-        Uri.parse('$baseUrl/chat/groups/$groupId'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId',
+        method: 'PUT',
         body: body,
       );
 
@@ -274,6 +247,7 @@ class ChatApiService {
       }
       return null;
     } catch (e) {
+      print('Error updating group info: $e');
       return null;
     }
   }
@@ -281,30 +255,33 @@ class ChatApiService {
   // Delete group
   static Future<bool> deleteGroup(String groupId) async {
     try {
-      final headers = await _getHeaders();
-
-      final response = await http.delete(
-        Uri.parse('$baseUrl/chat/groups/$groupId'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/chat/groups/$groupId',
+        method: 'DELETE',
       );
 
       return response.statusCode == 200;
     } catch (e) {
+      print('Error deleting group: $e');
       return false;
     }
   }
 
   // Update user profile
-  static Future<User?> updateUserProfile({String? profilePicture}) async {
+  static Future<User?> updateUserProfile({
+    String? profilePicture,
+    String? firstName,
+    String? lastName,
+  }) async {
     try {
-      final headers = await _getHeaders();
-      final body = json.encode({
-        if (profilePicture != null) 'profilePicture': profilePicture,
-      });
+      final body = <String, dynamic>{};
+      if (profilePicture != null) body['profilePicture'] = profilePicture;
+      if (firstName != null) body['firstName'] = firstName;
+      if (lastName != null) body['lastName'] = lastName;
 
-      final response = await http.put(
-        Uri.parse('$baseUrl/users/profile'),
-        headers: headers,
+      final response = await ApiService.authenticatedRequest(
+        '/users/profile',
+        method: 'PUT',
         body: body,
       );
 
@@ -314,12 +291,13 @@ class ChatApiService {
       }
       return null;
     } catch (e) {
+      print('Error updating user profile: $e');
       return null;
     }
   }
 }
 
-// Models with JSON serialization
+// Models with JSON serialization (unchanged)
 class User {
   final String id;
   final String firstName;
@@ -414,7 +392,7 @@ class ChatGroup {
   }
 }
 
-// Chat Data Manager with API integration
+// Chat Data Manager with API integration (unchanged logic, just uses updated API service)
 class ChatDataManager {
   static final ChatDataManager _instance = ChatDataManager._internal();
   factory ChatDataManager() => _instance;
@@ -526,6 +504,8 @@ class ChatDataManager {
     try {
       final updatedUser = await ChatApiService.updateUserProfile(
         profilePicture: profilePicture,
+        firstName: firstName,
+        lastName: lastName,
       );
       if (updatedUser != null) {
         _currentUser = updatedUser;
@@ -544,7 +524,7 @@ class ChatDataManager {
   }
 }
 
-// Main Chat Screen
+// Main Chat Screen (UI remains the same, just uses updated data manager)
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
 
@@ -580,7 +560,30 @@ class _MainChatScreenState extends State<MainChatScreen> {
         _isLoading = false;
         _errorMessage = e.toString();
       });
+
+      // If authentication failed, redirect to login
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     }
+  }
+
+  void _handleAuthenticationFailure() {
+    // Clear any cached data
+    _chatManager.clearCache();
+
+    // Show message and redirect to login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Session expired. Please login again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    });
   }
 
   Future<void> _refreshData() async {
@@ -654,17 +657,26 @@ class _MainChatScreenState extends State<MainChatScreen> {
               style: TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 8),
-            Text(
-              _errorMessage,
-              style: TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _errorMessage.contains('Authentication failed')
+                    ? 'Your session has expired. Please login again.'
+                    : _errorMessage,
+                style: TextStyle(color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _refreshData,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
-            ),
+            if (!_errorMessage.contains('Authentication failed'))
+              ElevatedButton(
+                onPressed: _refreshData,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
           ],
         ),
       );
@@ -737,21 +749,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  String _formatTime(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'now';
-    }
-  }
-
   void _openChatRoom(BuildContext context, ChatGroup group) {
     Navigator.push(
       context,
@@ -779,7 +776,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
   }
 }
 
-// Chat Room Screen
+// Chat Room Screen (UI logic remains the same)
 class ChatRoomScreen extends StatefulWidget {
   final ChatGroup group;
 
@@ -813,7 +810,21 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       _showErrorSnackBar('Failed to load messages: $e');
+
+      // Handle authentication failure
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     }
+  }
+
+  void _handleAuthenticationFailure() {
+    _chatManager.clearCache();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    });
   }
 
   @override
@@ -1043,6 +1054,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       _showErrorSnackBar('Failed to send message: $e');
       // Restore the message in the text field
       _messageController.text = content;
+
+      // Handle authentication failure
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     } finally {
       setState(() => _isSending = false);
     }
@@ -1283,7 +1299,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 }
 
-// Profile Settings Screen
+// Profile Settings Screen (updated to use ApiService for logout)
 class ProfileSettingsScreen extends StatefulWidget {
   final Function(bool) onThemeChanged;
   final bool isDarkTheme;
@@ -1542,9 +1558,23 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       }
     } catch (e) {
       _showErrorSnackBar('Error updating profile: $e');
+
+      // Handle authentication failure
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     } finally {
       setState(() => _isSaving = false);
     }
+  }
+
+  void _handleAuthenticationFailure() {
+    _chatManager.clearCache();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    });
   }
 
   Future<void> _logout() async {
@@ -1572,8 +1602,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
     if (shouldLogout == true) {
       try {
-        await TokenService.clearTokens();
+        // Use the centralized ApiService logout method
+        await ApiService.logout();
         _chatManager.clearCache();
+
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
@@ -1606,7 +1638,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 }
 
-// Create Group Dialog
+// Create Group Dialog (updated with better error handling)
 class CreateGroupDialog extends StatefulWidget {
   final VoidCallback onGroupCreated;
 
@@ -1618,7 +1650,6 @@ class CreateGroupDialog extends StatefulWidget {
 
 class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final TextEditingController _groupNameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
   final List<int> _selectedMembers = [];
   final ChatDataManager _chatManager = ChatDataManager();
   List<User> _availableUsers = [];
@@ -1642,7 +1673,21 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     } catch (e) {
       setState(() => _isLoading = false);
       _showErrorSnackBar('Failed to load users: $e');
+
+      // Handle authentication failure
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     }
+  }
+
+  void _handleAuthenticationFailure() {
+    _chatManager.clearCache();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    });
   }
 
   @override
@@ -1699,6 +1744,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                     itemCount: _availableUsers.length,
                     itemBuilder: (context, index) {
                       final user = _availableUsers[index];
+                      final userId = int.tryParse(user.id);
                       return CheckboxListTile(
                         title: Text(
                           '${user.firstName} ${user.lastName}',
@@ -1708,16 +1754,19 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                           user.email,
                           style: const TextStyle(color: Colors.white70),
                         ),
-                        value: _selectedMembers.contains(user.id),
-                        onChanged: (selected) {
-                          setState(() {
-                            if (selected == true) {
-                              _selectedMembers.add(user.id);
-                            } else {
-                              _selectedMembers.remove(user.id);
-                            }
-                          });
-                        },
+                        value:
+                            userId != null && _selectedMembers.contains(userId),
+                        onChanged: userId != null
+                            ? (selected) {
+                                setState(() {
+                                  if (selected == true) {
+                                    _selectedMembers.add(userId);
+                                  } else {
+                                    _selectedMembers.remove(userId);
+                                  }
+                                });
+                              }
+                            : null,
                         activeColor: Colors.blue,
                       );
                     },
@@ -1772,6 +1821,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       }
     } catch (e) {
       _showErrorSnackBar('Error creating group: $e');
+
+      // Handle authentication failure
+      if (e.toString().contains('Authentication failed')) {
+        _handleAuthenticationFailure();
+      }
     } finally {
       setState(() => _isCreating = false);
     }
@@ -1792,7 +1846,6 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   void dispose() {
     _groupNameController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 }
