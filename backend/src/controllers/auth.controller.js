@@ -69,25 +69,28 @@ export const refreshAccessToken = (req, res) => {
     return res.status(400).json({ message: "Refresh token is required" });
   }
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      console.error("Error verifying refresh token:", err);
-      return res.status(401).json({ message: "Invalid refresh token" });
-    } else {
-      if (decoded.type !== "refresh") {
-        return res.status(401).json({ message: "Invalid token type" });
-      } else {
-        const { user_id } = req.body;
-        const payload = {
-          user_id,
-        };
-        const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-          expiresIn: "30m",
-        });
-        console.log("Access token refreshed for user:", decoded.user_id);
-        return res
-          .status(200)
-          .json({ accessToken: newAccessToken, message: "Token refreshed" });
-      }
+    if (err) return res.status(401).json({ message: "Invalid refresh token" });
+
+    if (decoded.type !== "refresh") {
+      return res.status(401).json({ message: "Invalid token type" });
     }
+
+    const payload = { user_id: decoded.user_id };
+
+    const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "30m",
+    });
+
+    const newRefreshToken = jwt.sign(
+      { user_id: decoded.user_id, type: "refresh" },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      message: "Token refreshed",
+    });
   });
 };

@@ -1,7 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:developer' as developer;
 
 class TokenService {
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
@@ -64,8 +63,8 @@ class TokenService {
 
   // Check if user is logged in
   static Future<bool> isLoggedIn() async {
-    final accessToken = await getAccessToken();
-    return accessToken != null && accessToken.isNotEmpty;
+    final refreshToken = await getRefreshToken();
+    return refreshToken != null && refreshToken.isNotEmpty;
   }
 
   // Check if access token is expired (client-side check)
@@ -127,7 +126,6 @@ class ApiService {
 
     // If token expired, try to refresh
     if (response.statusCode == 401) {
-      print('-------------alma--------------');
       try {
         final responseBody = json.decode(response.body);
         final errorCode = responseBody['code'];
@@ -246,21 +244,6 @@ class ApiService {
 
   // Logout method
   static Future<bool> logout() async {
-    try {
-      // Optional: Call server logout endpoint
-      final refreshToken = await TokenService.getRefreshToken();
-      if (refreshToken != null) {
-        await http.post(
-          Uri.parse('$baseUrl/auth/logout'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({'refreshToken': refreshToken}),
-        );
-      }
-    } catch (e) {
-      print('Server logout failed: $e');
-      // Continue with local logout even if server call fails
-    }
-
     // Always clear local tokens
     await TokenService.clearTokens();
     return true;

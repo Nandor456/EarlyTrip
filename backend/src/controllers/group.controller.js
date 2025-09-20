@@ -15,6 +15,7 @@ export function getGroups(req, res) {
       return res.status(500).json({ message: "Internal server error" });
     }
     console.log("Groups fetched for user:", req.user.user_id, result.rows);
+    console.log({ groups: result.rows });
     res.status(200).json({ groups: result.rows });
   });
 }
@@ -53,6 +54,7 @@ export function createChatGroup(req, res) {
 
     // Include creator in the members list
     const allMemberIds = [...memberIds, creatorId];
+    console.log("All member IDs including creator:", allMemberIds);
 
     // Create the VALUES clause dynamically
     const values = [];
@@ -177,5 +179,47 @@ export function deleteChatGroup(req, res) {
       console.log("Group deleted with ID:", groupId);
       res.status(200).json({ message: "Group deleted successfully" });
     });
+  });
+}
+
+export function getGroupMessages(req, res) {
+  const groupId = req.params.group_id;
+  const query = `
+        SELECT message_id, sender_id, content, message_type, timestamp
+        FROM messages
+        WHERE group_id = $1
+        ORDER BY timestamp ASC
+    `;
+  pool.query(query, [groupId], (err, result) => {
+    if (err) {
+      console.error("Error fetching group messages:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+    console.log("Messages fetched for group:", groupId, result.rows);
+    res.status(200).json({ messages: result.rows });
+  });
+}
+
+export function sendGroupMessage(req, res) {
+  const groupId = req.params.group_id;
+  const { content, type } = req.body;
+  const senderId = req.user.user_id;
+  if (!content || !type) {
+    return res
+      .status(400)
+      .json({ message: "content and type are required fields" });
+  }
+  const query = `
+        INSERT INTO messages (group_id, sender_id, content, messsage_type, timestamp)
+        VALUES ($1, $2, $3, $4, NOW())
+        RETURNING message_id, sender_id, content, type, timestamp
+    `;
+  pool.query(query, [groupId, senderId, content, type], (err, result) => {
+    if (err) {
+      console.error("Error sending message:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+    console.log("Message sent in group:", groupId, result.rows[0]);
+    res.status(201).json({ message: result.rows[0] });
   });
 }

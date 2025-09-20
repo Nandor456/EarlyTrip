@@ -1,6 +1,5 @@
 // chat_system.dart - Database integrated chat system with ApiService integration
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tokenService.dart';
 
@@ -9,7 +8,7 @@ class ChatApiService {
   // Get user's chat groups
   static Future<List<ChatGroup>> getUserChatGroups() async {
     try {
-      final response = await ApiService.authenticatedRequest('/chat/groups');
+      final response = await ApiService.authenticatedRequest('/groups');
 
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
 
@@ -55,7 +54,7 @@ class ChatApiService {
   }) async {
     try {
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId/messages?limit=$limit&offset=$offset',
+        '/groups/$groupId/messages?limit=$limit&offset=$offset',
       );
 
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
@@ -90,7 +89,7 @@ class ChatApiService {
       };
 
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId/messages',
+        '/groups/$groupId/messages',
         method: 'POST',
         body: body,
       );
@@ -119,7 +118,7 @@ class ChatApiService {
       final body = {'groupName': name, 'memberIds': memberIds};
 
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups',
+        '/groups',
         method: 'POST',
         body: body,
       );
@@ -165,7 +164,7 @@ class ChatApiService {
   static Future<List<User>> getGroupMembers(String groupId) async {
     try {
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId/members',
+        '/groups/$groupId/members',
       );
 
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
@@ -194,7 +193,7 @@ class ChatApiService {
       final body = {'memberIds': memberIds};
 
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId/members',
+        '/groups/$groupId/members',
         method: 'POST',
         body: body,
       );
@@ -213,7 +212,7 @@ class ChatApiService {
   ) async {
     try {
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId/members/$memberId',
+        '/groups/$groupId/members/$memberId',
         method: 'DELETE',
       );
 
@@ -236,7 +235,7 @@ class ChatApiService {
       if (description != null) body['description'] = description;
 
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId',
+        '/groups/$groupId',
         method: 'PUT',
         body: body,
       );
@@ -256,7 +255,7 @@ class ChatApiService {
   static Future<bool> deleteGroup(String groupId) async {
     try {
       final response = await ApiService.authenticatedRequest(
-        '/chat/groups/$groupId',
+        '/groups/$groupId',
         method: 'DELETE',
       );
 
@@ -332,7 +331,7 @@ class User {
 class Message {
   final String id;
   final String senderId;
-  final String senderName;
+  final String groupId;
   final String content;
   final MessageType type;
   final DateTime timestamp;
@@ -341,7 +340,7 @@ class Message {
   Message({
     required this.id,
     required this.senderId,
-    required this.senderName,
+    required this.groupId,
     required this.content,
     required this.type,
     required this.timestamp,
@@ -350,9 +349,9 @@ class Message {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'].toString(),
+      id: json['message_id'].toString(),
       senderId: json['sender_id'].toString(),
-      senderName: json['sender_name'] ?? 'Unknown',
+      groupId: json['group_id'].toString(),
       content: json['content'] ?? '',
       type: MessageType.values.firstWhere(
         (e) => e.toString().split('.').last == json['type'],
@@ -384,7 +383,7 @@ class ChatGroup {
   factory ChatGroup.fromJson(Map<String, dynamic> json) {
     return ChatGroup(
       id: json['group_id'].toString(),
-      name: json['group_name'] ?? '',
+      name: json['name'] ?? '',
       groupImage: json['group_image'],
       adminId: json['admin_id'].toString(),
       createdAt: DateTime.parse(json['created_at']),
@@ -401,7 +400,7 @@ class ChatDataManager {
   User? _currentUser;
   List<ChatGroup> _chatGroups = [];
   List<User> _allUsers = [];
-  Map<String, List<Message>> _groupMessages = {};
+  final Map<String, List<Message>> _groupMessages = {};
 
   User? get currentUser => _currentUser;
   List<ChatGroup> get chatGroups => List.unmodifiable(_chatGroups);
@@ -423,11 +422,7 @@ class ChatDataManager {
   }
 
   Future<void> loadChatGroups() async {
-    try {
-      _chatGroups = await ChatApiService.getUserChatGroups();
-    } catch (e) {
-      throw Exception('Failed to load chat groups: $e');
-    }
+    _chatGroups = await ChatApiService.getUserChatGroups();
   }
 
   Future<void> loadAllUsers() async {
@@ -923,7 +918,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           children: [
             if (!isMe)
               Text(
-                message.senderName,
+                'gusztav',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.white70,
@@ -1325,8 +1320,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   void initState() {
     super.initState();
     final user = _chatManager.currentUser;
-    _firstNameController = TextEditingController(text: user?.firstName ?? '');
-    _lastNameController = TextEditingController(text: user?.lastName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
   }
 
@@ -1401,26 +1394,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _lastNameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Username',
-                labelStyle: const TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
               ),
             ),
             const SizedBox(height: 16),
