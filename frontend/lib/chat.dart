@@ -1,7 +1,19 @@
-// chat_system.dart - Database integrated chat system with ApiService integration
+// chat_system.dart - Updated with Socket.IO integration
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'tokenService.dart';
+import 'theme.dart';
+import 'package:provider/provider.dart';
+import 'socket.io.dart';
+
+// First, let's fix the missing imports and classes that seem to be referenced
+// You'll need to make sure these are available in your project:
+// import 'api_service.dart'; // Your centralized API service
+// class ApiService { ... }
+// class ApiResponseHandler { ... }
+// class AuthException extends Exception { ... }
+// class NetworkException extends Exception { ... }
+// class ApiException extends Exception { ... }
 
 // Updated API Service for chat operations using the centralized ApiService
 class ChatApiService {
@@ -9,9 +21,7 @@ class ChatApiService {
   static Future<List<ChatGroup>> getUserChatGroups() async {
     try {
       final response = await ApiService.authenticatedRequest('/groups');
-
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return (data['groups'] as List)
           .map((group) => ChatGroup.fromJson(group))
           .toList();
@@ -30,9 +40,7 @@ class ChatApiService {
   static Future<User> getUserData() async {
     try {
       final response = await ApiService.authenticatedRequest('/users/profile');
-
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return User.fromJson(data['user']);
     } catch (e) {
       if (e is AuthException) {
@@ -56,9 +64,7 @@ class ChatApiService {
       final response = await ApiService.authenticatedRequest(
         '/groups/$groupId/messages?limit=$limit&offset=$offset',
       );
-
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return (data['messages'] as List)
           .map((message) => Message.fromJson(message))
           .toList();
@@ -74,7 +80,7 @@ class ChatApiService {
     }
   }
 
-  // Send a message to a group
+  // Send a message to a group (this will be used as fallback if Socket.IO fails)
   static Future<Message> sendMessage(
     String groupId,
     String content,
@@ -95,7 +101,6 @@ class ChatApiService {
       );
 
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return Message.fromJson(data['message']);
     } catch (e) {
       if (e is AuthException) {
@@ -124,7 +129,6 @@ class ChatApiService {
       );
 
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return ChatGroup.fromJson(data['groups']);
     } catch (e) {
       if (e is AuthException) {
@@ -142,9 +146,7 @@ class ChatApiService {
   static Future<List<User>> getAllUsers() async {
     try {
       final response = await ApiService.authenticatedRequest('/users');
-
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return (data['users'] as List)
           .map((user) => User.fromJson(user))
           .toList();
@@ -160,15 +162,13 @@ class ChatApiService {
     }
   }
 
-  // Get group members
+  // Get group members with user details
   static Future<List<User>> getGroupMembers(String groupId) async {
     try {
       final response = await ApiService.authenticatedRequest(
         '/groups/$groupId/members',
       );
-
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-
       return (data['members'] as List)
           .map((user) => User.fromJson(user))
           .toList();
@@ -183,120 +183,11 @@ class ChatApiService {
       throw Exception('Error loading group members: $e');
     }
   }
-
-  // Add members to group
-  static Future<bool> addMembersToGroup(
-    String groupId,
-    List<String> memberIds,
-  ) async {
-    try {
-      final body = {'memberIds': memberIds};
-
-      final response = await ApiService.authenticatedRequest(
-        '/groups/$groupId/members',
-        method: 'POST',
-        body: body,
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error adding members to group: $e');
-      return false;
-    }
-  }
-
-  // Remove member from group
-  static Future<bool> removeMemberFromGroup(
-    String groupId,
-    String memberId,
-  ) async {
-    try {
-      final response = await ApiService.authenticatedRequest(
-        '/groups/$groupId/members/$memberId',
-        method: 'DELETE',
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error removing member from group: $e');
-      return false;
-    }
-  }
-
-  // Update group info
-  static Future<ChatGroup?> updateGroupInfo(
-    String groupId, {
-    String? name,
-    String? description,
-  }) async {
-    try {
-      final body = <String, dynamic>{};
-      if (name != null) body['name'] = name;
-      if (description != null) body['description'] = description;
-
-      final response = await ApiService.authenticatedRequest(
-        '/groups/$groupId',
-        method: 'PUT',
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return ChatGroup.fromJson(data['group']);
-      }
-      return null;
-    } catch (e) {
-      print('Error updating group info: $e');
-      return null;
-    }
-  }
-
-  // Delete group
-  static Future<bool> deleteGroup(String groupId) async {
-    try {
-      final response = await ApiService.authenticatedRequest(
-        '/groups/$groupId',
-        method: 'DELETE',
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('Error deleting group: $e');
-      return false;
-    }
-  }
-
-  // Update user profile
-  static Future<User?> updateUserProfile({
-    String? profilePicture,
-    String? firstName,
-    String? lastName,
-  }) async {
-    try {
-      final body = <String, dynamic>{};
-      if (profilePicture != null) body['profilePicture'] = profilePicture;
-      if (firstName != null) body['firstName'] = firstName;
-      if (lastName != null) body['lastName'] = lastName;
-
-      final response = await ApiService.authenticatedRequest(
-        '/users/profile',
-        method: 'PUT',
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return User.fromJson(data['user']);
-      }
-      return null;
-    } catch (e) {
-      print('Error updating user profile: $e');
-      return null;
-    }
-  }
 }
 
-// Models with JSON serialization (unchanged)
+// Models
+enum MessageType { text, image, document }
+
 class User {
   final String id;
   final String firstName;
@@ -326,12 +217,13 @@ class User {
     return '${firstName.isNotEmpty ? firstName[0] : ''}${lastName.isNotEmpty ? lastName[0] : ''}'
         .toUpperCase();
   }
+
+  String get fullName => '$firstName $lastName'.trim();
 }
 
 class Message {
   final String id;
   final String senderId;
-  final String groupId;
   final String content;
   final MessageType type;
   final DateTime timestamp;
@@ -340,7 +232,6 @@ class Message {
   Message({
     required this.id,
     required this.senderId,
-    required this.groupId,
     required this.content,
     required this.type,
     required this.timestamp,
@@ -348,22 +239,28 @@ class Message {
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    MessageType messageType;
+    switch (json['type']) {
+      case 'image':
+        messageType = MessageType.image;
+        break;
+      case 'document':
+        messageType = MessageType.document;
+        break;
+      default:
+        messageType = MessageType.text;
+    }
+
     return Message(
       id: json['message_id'].toString(),
-      senderId: json['sender_id'].toString(),
-      groupId: json['group_id'].toString(),
+      senderId: json['user_id'].toString(),
       content: json['content'] ?? '',
-      type: MessageType.values.firstWhere(
-        (e) => e.toString().split('.').last == json['type'],
-        orElse: () => MessageType.text,
-      ),
+      type: messageType,
       timestamp: DateTime.parse(json['timestamp']),
       mediaUrl: json['media_url'],
     );
   }
 }
-
-enum MessageType { text, image, file }
 
 class ChatGroup {
   final String id;
@@ -391,7 +288,7 @@ class ChatGroup {
   }
 }
 
-// Chat Data Manager with API integration (unchanged logic, just uses updated API service)
+// Chat Data Manager with Socket.IO integration
 class ChatDataManager {
   static final ChatDataManager _instance = ChatDataManager._internal();
   factory ChatDataManager() => _instance;
@@ -401,6 +298,7 @@ class ChatDataManager {
   List<ChatGroup> _chatGroups = [];
   List<User> _allUsers = [];
   final Map<String, List<Message>> _groupMessages = {};
+  final Map<String, List<User>> _groupMembersCache = {};
 
   User? get currentUser => _currentUser;
   List<ChatGroup> get chatGroups => List.unmodifiable(_chatGroups);
@@ -409,13 +307,7 @@ class ChatDataManager {
   Future<void> initializeCurrentUser() async {
     try {
       final userData = await ChatApiService.getUserData();
-      _currentUser = User(
-        id: userData.id,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        email: userData.email,
-        profilePicture: userData.profilePicture,
-      );
+      _currentUser = userData;
     } catch (e) {
       throw Exception('Failed to initialize current user: $e');
     }
@@ -450,28 +342,53 @@ class ChatDataManager {
     }
   }
 
-  Future<Message?> sendMessage(
-    String groupId,
-    String content,
-    MessageType type, {
-    String? mediaUrl,
+  Future<List<User>> getGroupMembers(
+    String groupId, {
+    bool forceRefresh = false,
   }) async {
+    if (!forceRefresh && _groupMembersCache.containsKey(groupId)) {
+      return _groupMembersCache[groupId]!;
+    }
+
     try {
-      final message = await ChatApiService.sendMessage(
-        groupId,
-        content,
-        type,
-        mediaUrl: mediaUrl,
-      );
-
-      // Add to local cache
-      if (_groupMessages.containsKey(groupId)) {
-        _groupMessages[groupId]!.add(message);
-      }
-
-      return message;
+      final members = await ChatApiService.getGroupMembers(groupId);
+      _groupMembersCache[groupId] = members;
+      return members;
     } catch (e) {
-      throw Exception('Failed to send message: $e');
+      throw Exception('Failed to load group members: $e');
+    }
+  }
+
+  // Get user by ID from cached data
+  User? getUserById(String userId) {
+    // First check current user
+    if (_currentUser?.id == userId) return _currentUser;
+
+    // Then check all users cache
+    try {
+      return _allUsers.firstWhere((user) => user.id == userId);
+    } catch (e) {
+      // Check in group members cache
+      for (final members in _groupMembersCache.values) {
+        try {
+          return members.firstWhere((user) => user.id == userId);
+        } catch (e) {
+          continue;
+        }
+      }
+      return null;
+    }
+  }
+
+  // Add message to local cache (used by Socket.IO listener)
+  void addMessageToCache(String groupId, Message message) {
+    if (!_groupMessages.containsKey(groupId)) {
+      _groupMessages[groupId] = [];
+    }
+
+    // Avoid duplicates
+    if (!_groupMessages[groupId]!.any((m) => m.id == message.id)) {
+      _groupMessages[groupId]!.add(message);
     }
   }
 
@@ -491,35 +408,16 @@ class ChatDataManager {
     }
   }
 
-  Future<User?> updateUserProfile({
-    String? profilePicture,
-    String? firstName,
-    String? lastName,
-  }) async {
-    try {
-      final updatedUser = await ChatApiService.updateUserProfile(
-        profilePicture: profilePicture,
-        firstName: firstName,
-        lastName: lastName,
-      );
-      if (updatedUser != null) {
-        _currentUser = updatedUser;
-      }
-      return updatedUser;
-    } catch (e) {
-      throw Exception('Failed to update profile: $e');
-    }
-  }
-
   void clearCache() {
     _chatGroups.clear();
     _allUsers.clear();
     _groupMessages.clear();
+    _groupMembersCache.clear();
     _currentUser = null;
   }
 }
 
-// Main Chat Screen (UI remains the same, just uses updated data manager)
+// Main Chat Screen
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
 
@@ -529,9 +427,10 @@ class MainChatScreen extends StatefulWidget {
 
 class _MainChatScreenState extends State<MainChatScreen> {
   final ChatDataManager _chatManager = ChatDataManager();
-  bool _isDarkTheme = true;
+  final SocketService _socketService = SocketService();
   bool _isLoading = true;
   String _errorMessage = '';
+  bool _isSocketConnected = false;
 
   @override
   void initState() {
@@ -549,6 +448,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
       await _chatManager.initializeCurrentUser();
       await _chatManager.loadChatGroups();
 
+      // Initialize Socket.IO connection
+      await _initializeSocket();
+
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
@@ -556,24 +458,40 @@ class _MainChatScreenState extends State<MainChatScreen> {
         _errorMessage = e.toString();
       });
 
-      // If authentication failed, redirect to login
       if (e.toString().contains('Authentication failed')) {
         _handleAuthenticationFailure();
       }
     }
   }
 
-  void _handleAuthenticationFailure() {
-    // Clear any cached data
-    _chatManager.clearCache();
+  Future<void> _initializeSocket() async {
+    try {
+      _socketService.connect('http://10.0.2.2:3000', path: '/ws');
 
-    // Show message and redirect to login
+      _socketService.socket.on("connect", (_) {
+        setState(() => _isSocketConnected = true);
+        print('Connected to Socket.IO server');
+      });
+
+      _socketService.socket.on("disconnect", (_) {
+        setState(() => _isSocketConnected = false);
+        print('Disconnected from Socket.IO server');
+      });
+    } catch (e) {
+      print('Socket connection failed: $e');
+    }
+  }
+
+  void _handleAuthenticationFailure() {
+    _chatManager.clearCache();
+    _socketService.disconnect();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session expired. Please login again.'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text('Session expired. Please login again.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
@@ -587,22 +505,30 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Chats',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: const Padding(
+          padding: EdgeInsets.only(left: 12.0),
+          child: Text('Chats'),
         ),
+        automaticallyImplyLeading: false,
         actions: [
+          // Socket.IO status indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              _isSocketConnected ? Icons.circle : Icons.circle_outlined,
+              color: _isSocketConnected ? Colors.green : Colors.red,
+              size: 12,
+            ),
+          ),
           GestureDetector(
             onTap: () => _showProfileSettings(context),
             child: Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: CircleAvatar(
-                backgroundColor: Colors.blue,
+                backgroundColor: theme.colorScheme.primary,
                 backgroundImage:
                     _chatManager.currentUser?.profilePicture != null
                     ? NetworkImage(
@@ -611,12 +537,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
                     : null,
                 child: _chatManager.currentUser?.profilePicture == null
                     ? Text(
-                        _chatManager.currentUser?.lastName.isNotEmpty == true
-                            ? _chatManager.currentUser!.lastName[0]
-                                  .toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        _chatManager.currentUser?.getInitials() ?? 'U',
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       )
@@ -629,15 +552,15 @@ class _MainChatScreenState extends State<MainChatScreen> {
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateGroupDialog(context),
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.blue));
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_errorMessage.isNotEmpty) {
@@ -645,12 +568,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
             const SizedBox(height: 16),
-            Text(
-              'Error loading chats',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            Text('Error loading chats', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -658,7 +578,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 _errorMessage.contains('Authentication failed')
                     ? 'Your session has expired. Please login again.'
                     : _errorMessage,
-                style: TextStyle(color: Colors.white70),
+                style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -666,11 +586,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
             if (!_errorMessage.contains('Authentication failed'))
               ElevatedButton(
                 onPressed: _refreshData,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                child: const Text(
-                  'Retry',
-                  style: TextStyle(color: Colors.white),
-                ),
+                child: const Text('Retry'),
               ),
           ],
         ),
@@ -682,16 +598,17 @@ class _MainChatScreenState extends State<MainChatScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.white38),
-            const SizedBox(height: 16),
-            Text(
-              'No chats yet',
-              style: TextStyle(color: Colors.white, fontSize: 18),
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 64,
+              color: theme.textTheme.bodySmall?.color,
             ),
+            const SizedBox(height: 16),
+            Text('No chats yet', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               'Create a group to start chatting',
-              style: TextStyle(color: Colors.white70),
+              style: theme.textTheme.bodyMedium,
             ),
           ],
         ),
@@ -700,41 +617,32 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
     return RefreshIndicator(
       onRefresh: _refreshData,
-      color: Colors.blue,
-      backgroundColor: Colors.grey[800],
+      color: theme.colorScheme.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
         itemCount: _chatManager.chatGroups.length,
         itemBuilder: (context, index) {
           final group = _chatManager.chatGroups[index];
           return Card(
-            color: Colors.grey[800],
             margin: const EdgeInsets.symmetric(vertical: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Colors.blue,
+                backgroundColor: theme.colorScheme.primary,
                 backgroundImage: group.groupImage != null
-                    ? NetworkImage(group.groupImage!)
+                    ? NetworkImage('http://10.0.2.2:3000/${group.groupImage}')
                     : null,
                 child: group.groupImage == null
                     ? Text(
                         group.name[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onPrimary,
                         ),
                       )
                     : null,
               ),
               title: Text(
                 group.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               onTap: () => _openChatRoom(context, group),
             ),
@@ -747,19 +655,17 @@ class _MainChatScreenState extends State<MainChatScreen> {
   void _openChatRoom(BuildContext context, ChatGroup group) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ChatRoomScreen(group: group)),
+      MaterialPageRoute(
+        builder: (context) =>
+            ChatRoomScreen(group: group, socketService: _socketService),
+      ),
     ).then((_) => _refreshData());
   }
 
   void _showProfileSettings(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ProfileSettingsScreen(
-          onThemeChanged: (isDark) => setState(() => _isDarkTheme = isDark),
-          isDarkTheme: _isDarkTheme,
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => const ProfileSettingsScreen()),
     ).then((_) => setState(() {}));
   }
 
@@ -769,13 +675,24 @@ class _MainChatScreenState extends State<MainChatScreen> {
       builder: (context) => CreateGroupDialog(onGroupCreated: _refreshData),
     );
   }
+
+  @override
+  void dispose() {
+    // Don't disconnect socket here as it might be used by other screens
+    super.dispose();
+  }
 }
 
-// Chat Room Screen (UI logic remains the same)
+// Improved ChatRoomScreen with Socket.IO integration
 class ChatRoomScreen extends StatefulWidget {
   final ChatGroup group;
+  final SocketService socketService;
 
-  const ChatRoomScreen({super.key, required this.group});
+  const ChatRoomScreen({
+    super.key,
+    required this.group,
+    required this.socketService,
+  });
 
   @override
   State<ChatRoomScreen> createState() => _ChatRoomScreenState();
@@ -784,37 +701,150 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ChatDataManager _chatManager = ChatDataManager();
+  final ScrollController _scrollController = ScrollController();
+
   List<Message> _messages = [];
+  List<User> _groupMembers = [];
   bool _isLoading = true;
   bool _isSending = false;
+  String _typingIndicator = '';
+  bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    _initializeChatRoom();
+    _messageController.addListener(_onTextChanged);
+  }
+
+  Future<void> _initializeChatRoom() async {
+    try {
+      setState(() => _isLoading = true);
+
+      // Join the group room
+      widget.socketService.joinGroup(widget.group.id);
+
+      // Set up Socket.IO listeners
+      _setupSocketListeners();
+
+      // Load initial data
+      await Future.wait([_loadMessages(), _loadGroupMembers()]);
+
+      setState(() => _isLoading = false);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showErrorSnackBar('Failed to initialize chat: $e');
+    }
+  }
+
+  void _setupSocketListeners() {
+    // Listen for new messages
+    widget.socketService.onNewMessage((data) {
+      try {
+        final messageData = data as Map<String, dynamic>;
+        final groupId = messageData['groupId']?.toString();
+
+        if (groupId == widget.group.id) {
+          final message = Message.fromJson(messageData['message']);
+          _onNewMessage(message);
+        }
+      } catch (e) {
+        print('Error parsing new message: $e');
+      }
+    });
+
+    // Listen for typing indicators
+    widget.socketService.socket.on('typing_update', (data) {
+      try {
+        final typingData = data as Map<String, dynamic>;
+        final groupId = typingData['groupId']?.toString();
+        final userName = typingData['userName']?.toString() ?? 'Someone';
+        final isTyping = typingData['isTyping'] as bool? ?? false;
+
+        if (groupId == widget.group.id) {
+          final typingText = isTyping ? '$userName is typing...' : '';
+          _onTypingUpdate(typingText);
+        }
+      } catch (e) {
+        print('Error parsing typing update: $e');
+      }
+    });
   }
 
   Future<void> _loadMessages() async {
     try {
-      setState(() => _isLoading = true);
       final messages = await _chatManager.getGroupMessages(widget.group.id);
       setState(() {
         _messages = messages;
-        _isLoading = false;
       });
+      _scrollToBottom();
     } catch (e) {
-      setState(() => _isLoading = false);
       _showErrorSnackBar('Failed to load messages: $e');
-
-      // Handle authentication failure
       if (e.toString().contains('Authentication failed')) {
         _handleAuthenticationFailure();
       }
     }
   }
 
+  Future<void> _loadGroupMembers() async {
+    try {
+      final members = await _chatManager.getGroupMembers(widget.group.id);
+      setState(() {
+        _groupMembers = members;
+      });
+    } catch (e) {
+      _showErrorSnackBar('Failed to load group members: $e');
+    }
+  }
+
+  void _onNewMessage(Message message) {
+    // Only add if it's not already in the list (avoid duplicates)
+    if (!_messages.any((m) => m.id == message.id)) {
+      setState(() {
+        _messages.add(message);
+      });
+      _chatManager.addMessageToCache(widget.group.id, message);
+      _scrollToBottom();
+    }
+  }
+
+  void _onTypingUpdate(String typingText) {
+    setState(() {
+      _typingIndicator = typingText;
+    });
+  }
+
+  void _onTextChanged() {
+    final isCurrentlyTyping = _messageController.text.trim().isNotEmpty;
+
+    if (isCurrentlyTyping != _isTyping) {
+      _isTyping = isCurrentlyTyping;
+      _sendTypingIndicator(_isTyping);
+    }
+  }
+
+  void _sendTypingIndicator(bool isTyping) {
+    widget.socketService.socket.emit('typing', {
+      'groupId': widget.group.id,
+      'isTyping': isTyping,
+    });
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   void _handleAuthenticationFailure() {
     _chatManager.clearCache();
+    widget.socketService.disconnect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
@@ -825,45 +855,46 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white70),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.group.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+            Text(widget.group.name),
+            if (_typingIndicator.isNotEmpty)
+              Text(
+                _typingIndicator,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              )
+            else
+              Text(
+                '${_groupMembers.length} members',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-            Text(
-              'members',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
           ],
         ),
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: Icon(
+              widget.socketService.socket.connected
+                  ? Icons.circle
+                  : Icons.circle_outlined,
+              color: widget.socketService.socket.connected
+                  ? Colors.green
+                  : Colors.red,
+              size: 12,
+            ),
+          ),
           PopupMenuButton(
-            color: Colors.grey[800],
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'info',
-                child: Text(
-                  'Group Info',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
+              const PopupMenuItem(value: 'info', child: Text('Group Info')),
               if (widget.group.adminId == _chatManager.currentUser?.id)
                 const PopupMenuItem(
                   value: 'manage',
-                  child: Text(
-                    'Manage Group',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: Text('Manage Group'),
                 ),
             ],
             onSelected: (value) {
@@ -880,17 +911,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         children: [
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.blue),
-                  )
+                ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(8),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
                       final isMe =
                           message.senderId == _chatManager.currentUser?.id;
-                      return _buildMessageBubble(message, isMe);
+                      final sender = _chatManager.getUserById(message.senderId);
+                      return _buildMessageBubble(message, isMe, sender);
                     },
                   ),
           ),
@@ -900,7 +931,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Message message, bool isMe) {
+  Widget _buildMessageBubble(Message message, bool isMe, User? sender) {
+    final theme = Theme.of(context);
+    final bubbleColor = isMe
+        ? theme.colorScheme.primary
+        : theme.colorScheme.surfaceContainerHighest;
+    final textColor = isMe
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onSurfaceVariant;
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -910,54 +949,52 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
-          color: isMe ? Colors.blue : Colors.grey[700],
+          color: bubbleColor,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!isMe)
+            if (!isMe && sender != null)
               Text(
-                'gusztav',
+                sender.fullName.isNotEmpty ? sender.fullName : sender.email,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white70,
+                  color: theme.colorScheme.secondary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            if (!isMe) const SizedBox(height: 4),
+            if (!isMe && sender != null) const SizedBox(height: 4),
             if (message.type == MessageType.image)
               Container(
                 height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[600],
                   image: message.mediaUrl != null
                       ? DecorationImage(
-                          image: NetworkImage(message.mediaUrl!),
+                          image: NetworkImage(
+                            'http://10.0.2.2:3000/${message.mediaUrl}',
+                          ),
                           fit: BoxFit.cover,
                         )
                       : null,
                 ),
                 child: message.mediaUrl == null
-                    ? const Center(
-                        child: Icon(Icons.image, color: Colors.white70),
+                    ? Center(
+                        child: Icon(
+                          Icons.image,
+                          color: textColor.withOpacity(0.7),
+                        ),
                       )
                     : null,
               ),
             if (message.type == MessageType.text)
-              Text(
-                message.content,
-                style: const TextStyle(color: Colors.white),
-              ),
+              Text(message.content, style: TextStyle(color: textColor)),
             const SizedBox(height: 4),
             Text(
               _formatMessageTime(message.timestamp),
-              style: TextStyle(
-                fontSize: 12,
-                color: isMe ? Colors.white70 : Colors.white60,
-              ),
+              style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.7)),
             ),
           ],
         ),
@@ -966,41 +1003,34 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   Widget _buildMessageInput() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(8),
-      color: Colors.grey[850],
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 0.5)),
+      ),
       child: Row(
         children: [
           IconButton(
             onPressed: () => _showMediaOptions(context),
-            icon: const Icon(Icons.attach_file, color: Colors.white70),
+            icon: Icon(Icons.attach_file, color: theme.iconTheme.color),
           ),
           Expanded(
             child: TextField(
               controller: _messageController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Type a message...',
-                hintStyle: const TextStyle(color: Colors.white38),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
-                filled: true,
-                fillColor: Colors.grey[800],
               ),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
           IconButton(
@@ -1009,12 +1039,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.blue,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.send, color: Colors.blue),
+                : Icon(Icons.send, color: theme.colorScheme.primary),
           ),
         ],
       ),
@@ -1031,24 +1058,41 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     final content = _messageController.text.trim();
     _messageController.clear();
 
+    // Stop typing indicator
+    _isTyping = false;
+    _sendTypingIndicator(false);
+
     setState(() => _isSending = true);
 
     try {
-      final message = await _chatManager.sendMessage(
-        widget.group.id,
-        content,
-        MessageType.text,
-      );
+      // Try Socket.IO first for real-time delivery
+      if (widget.socketService.socket.connected) {
+        final messageData = {
+          'content': content,
+          'type': MessageType.text.toString().split('.').last,
+          'timestamp': DateTime.now().toIso8601String(),
+        };
 
-      if (message != null) {
+        widget.socketService.sendMessage(widget.group.id, messageData);
+      } else {
+        // Fallback to HTTP API if Socket.IO is not connected
+        final message = await ChatApiService.sendMessage(
+          widget.group.id,
+          content,
+          MessageType.text,
+        );
+
+        // Add to local cache and UI
         setState(() {
           _messages.add(message);
         });
+        _chatManager.addMessageToCache(widget.group.id, message);
+        _scrollToBottom();
       }
     } catch (e) {
-      _showErrorSnackBar('Failed to send message: $e');
-      // Restore the message in the text field
+      // Restore message on error
       _messageController.text = content;
+      _showErrorSnackBar('Failed to send message: $e');
 
       // Handle authentication failure
       if (e.toString().contains('Authentication failed')) {
@@ -1060,48 +1104,43 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _showMediaOptions(BuildContext context) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[800],
+      backgroundColor: theme.cardColor,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.white70),
-              title: const Text(
-                'Gallery',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.photo_library, color: theme.iconTheme.color),
+              title: const Text('Gallery'),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement gallery selection
+                _showErrorSnackBar('Gallery feature not yet implemented');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.white70),
-              title: const Text(
-                'Camera',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.camera_alt, color: theme.iconTheme.color),
+              title: const Text('Camera'),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement camera capture
+                _showErrorSnackBar('Camera feature not yet implemented');
               },
             ),
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.insert_drive_file,
-                color: Colors.white70,
+                color: theme.iconTheme.color,
               ),
-              title: const Text(
-                'Document',
-                style: TextStyle(color: Colors.white),
-              ),
+              title: const Text('Document'),
               onTap: () {
                 Navigator.pop(context);
                 // TODO: Implement document selection
+                _showErrorSnackBar('Document feature not yet implemented');
               },
             ),
           ],
@@ -1111,33 +1150,82 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _showGroupInfo(BuildContext context) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[800],
-        title: Text(
-          widget.group.name,
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Created: ${_formatDate(widget.group.createdAt)}',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Admin ID: ${widget.group.adminId}',
-              style: const TextStyle(color: Colors.white70),
-            ),
-          ],
+        title: Text(widget.group.name),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Created: ${_formatDate(widget.group.createdAt)}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Members (${_groupMembers.length}):',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ..._groupMembers
+                  .map(
+                    (member) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: theme.colorScheme.primary,
+                            backgroundImage: member.profilePicture != null
+                                ? NetworkImage(
+                                    'http://10.0.2.2:3000/${member.profilePicture}',
+                                  )
+                                : null,
+                            child: member.profilePicture == null
+                                ? Text(
+                                    member.getInitials(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: theme.colorScheme.onPrimary,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              member.fullName.isNotEmpty
+                                  ? member.fullName
+                                  : member.email,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ),
+                          if (member.id == widget.group.adminId)
+                            Icon(
+                              Icons.admin_panel_settings,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                  ,
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.blue)),
+            child: Text(
+              'Close',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
           ),
         ],
       ),
@@ -1145,55 +1233,45 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _showGroupManagement(BuildContext context) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[800],
-        title: const Text(
-          'Group Management',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Group Management'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.person_add, color: Colors.white70),
-              title: const Text(
-                'Add Members',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.person_add, color: theme.iconTheme.color),
+              title: const Text('Add Members'),
               onTap: () {
                 Navigator.pop(context);
-                _showAddMembersDialog(context);
+                _showErrorSnackBar('Add members feature not yet implemented');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.person_remove, color: Colors.white70),
-              title: const Text(
-                'Remove Members',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.person_remove, color: theme.iconTheme.color),
+              title: const Text('Remove Members'),
               onTap: () {
                 Navigator.pop(context);
-                _showRemoveMembersDialog(context);
+                _showErrorSnackBar(
+                  'Remove members feature not yet implemented',
+                );
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit, color: Colors.white70),
-              title: const Text(
-                'Edit Group Info',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.edit, color: theme.iconTheme.color),
+              title: const Text('Edit Group Info'),
               onTap: () {
                 Navigator.pop(context);
-                _showEditGroupDialog(context);
+                _showErrorSnackBar('Edit group feature not yet implemented');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text(
+              leading: Icon(Icons.delete, color: theme.colorScheme.error),
+              title: Text(
                 'Delete Group',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: theme.colorScheme.error),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -1205,52 +1283,42 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.blue)),
+            child: Text(
+              'Close',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showAddMembersDialog(BuildContext context) {
-    // TODO: Implement add members dialog
-    _showErrorSnackBar('Add members feature not yet implemented');
-  }
-
-  void _showRemoveMembersDialog(BuildContext context) {
-    // TODO: Implement remove members dialog
-    _showErrorSnackBar('Remove members feature not yet implemented');
-  }
-
-  void _showEditGroupDialog(BuildContext context) {
-    // TODO: Implement edit group dialog
-    _showErrorSnackBar('Edit group feature not yet implemented');
-  }
-
   void _showDeleteGroupDialog(BuildContext context) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[800],
-        title: const Text(
-          'Delete Group',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Delete Group'),
         content: const Text(
           'Are you sure you want to delete this group? This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.blue)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await _deleteGroup();
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -1259,13 +1327,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   Future<void> _deleteGroup() async {
     try {
-      final success = await ChatApiService.deleteGroup(widget.group.id);
-      if (success) {
-        Navigator.pop(context);
-        _showSuccessSnackBar('Group deleted successfully');
-      } else {
-        _showErrorSnackBar('Failed to delete group');
-      }
+      // TODO: Implement delete group API call
+      // final success = await ChatApiService.deleteGroup(widget.group.id);
+      // if (success && mounted) {
+      //   Navigator.pop(context);
+      //   _showSuccessSnackBar('Group deleted successfully');
+      // } else {
+      //   _showErrorSnackBar('Failed to delete group');
+      // }
+      _showErrorSnackBar('Delete group feature not yet implemented');
     } catch (e) {
       _showErrorSnackBar('Error deleting group: $e');
     }
@@ -1276,12 +1346,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.green),
     );
@@ -1289,30 +1364,33 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   @override
   void dispose() {
+    // Clean up and leave group
+    widget.socketService.socket.emit('leave_group', widget.group.id);
+
+    // Stop typing indicator before leaving
+    if (_isTyping) {
+      _sendTypingIndicator(false);
+    }
+
+    _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
 
-// Profile Settings Screen (updated to use ApiService for logout)
+// Profile Settings Screen
 class ProfileSettingsScreen extends StatefulWidget {
-  final Function(bool) onThemeChanged;
-  final bool isDarkTheme;
-
-  const ProfileSettingsScreen({
-    super.key,
-    required this.onThemeChanged,
-    required this.isDarkTheme,
-  });
+  const ProfileSettingsScreen({super.key});
 
   @override
   State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
 }
 
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
+  late TextEditingController _emailController;
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
-  late TextEditingController _emailController;
   final ChatDataManager _chatManager = ChatDataManager();
   bool _isSaving = false;
 
@@ -1321,20 +1399,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     super.initState();
     final user = _chatManager.currentUser;
     _emailController = TextEditingController(text: user?.email ?? '');
+    _firstNameController = TextEditingController(text: user?.firstName ?? '');
+    _lastNameController = TextEditingController(text: user?.lastName ?? '');
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white70),
-        title: const Text(
-          'Profile Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Profile Settings'),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _saveProfile,
@@ -1342,12 +1418,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.blue,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Save', style: TextStyle(color: Colors.blue)),
+                : Text(
+                    'Save',
+                    style: TextStyle(color: theme.colorScheme.primary),
+                  ),
           ),
         ],
       ),
@@ -1360,19 +1436,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 children: [
                   CircleAvatar(
                     radius: 60,
-                    backgroundColor: Colors.blue,
+                    backgroundColor: theme.colorScheme.primary,
                     backgroundImage:
                         _chatManager.currentUser?.profilePicture != null
                         ? NetworkImage(
-                            _chatManager.currentUser!.profilePicture!,
+                            'http://10.0.2.2:3000/${_chatManager.currentUser!.profilePicture}',
                           )
                         : null,
                     child: _chatManager.currentUser?.profilePicture == null
                         ? Text(
                             _chatManager.currentUser?.getInitials() ?? 'U',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 30,
-                              color: Colors.white,
+                              color: theme.colorScheme.onPrimary,
                             ),
                           )
                         : null,
@@ -1382,13 +1458,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     right: 0,
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundColor: Colors.blue,
+                      backgroundColor: theme.colorScheme.secondary,
                       child: IconButton(
                         onPressed: _changeProfilePicture,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.camera_alt,
                           size: 20,
-                          color: Colors.white,
+                          color: theme.colorScheme.onSecondary,
                         ),
                       ),
                     ),
@@ -1396,69 +1472,55 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _firstNameController,
+              decoration: const InputDecoration(labelText: 'First Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _lastNameController,
+              decoration: const InputDecoration(labelText: 'Last Name'),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _emailController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Email',
-                labelStyle: const TextStyle(color: Colors.white70),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
-              ),
+              decoration: const InputDecoration(labelText: 'Email'),
               enabled: false,
             ),
             const SizedBox(height: 32),
             Card(
-              color: Colors.grey[800],
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Appearance',
-                      style: TextStyle(
-                        fontSize: 18,
+                      style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile(
-                      title: const Text(
-                        'Dark Theme',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      value: widget.isDarkTheme,
-                      onChanged: widget.onThemeChanged,
-                      activeThumbColor: Colors.blue,
+                      title: const Text('Dark Theme'),
+                      value: themeProvider.isDarkTheme,
+                      onChanged: (value) => themeProvider.setTheme(value),
+                      activeThumbColor: theme.colorScheme.primary,
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const Spacer(),
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
                 onPressed: _logout,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
                 ),
                 child: const Text(
                   'Logout',
@@ -1473,34 +1535,29 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   void _changeProfilePicture() {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[800],
+      backgroundColor: theme.cardColor,
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.white70),
-              title: const Text(
-                'Choose from Gallery',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.photo_library, color: theme.iconTheme.color),
+              title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement gallery selection for profile picture
+                _showErrorSnackBar('Gallery selection not yet implemented');
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.white70),
-              title: const Text(
-                'Take Photo',
-                style: TextStyle(color: Colors.white),
-              ),
+              leading: Icon(Icons.camera_alt, color: theme.iconTheme.color),
+              title: const Text('Take Photo'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement camera capture for profile picture
+                _showErrorSnackBar('Camera capture not yet implemented');
               },
             ),
           ],
@@ -1510,64 +1567,48 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (_lastNameController.text.trim().isEmpty) {
-      _showErrorSnackBar('Username cannot be empty');
-      return;
-    }
-
     setState(() => _isSaving = true);
 
     try {
-      final updatedUser = await _chatManager.updateUserProfile(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-      );
-
-      if (updatedUser != null) {
-        _showSuccessSnackBar('Profile updated successfully');
-        Navigator.pop(context);
-      } else {
-        _showErrorSnackBar('Failed to update profile');
-      }
+      // TODO: Implement profile update API call
+      // final updatedUser = await ChatApiService.updateUserProfile(
+      //   firstName: _firstNameController.text.trim(),
+      //   lastName: _lastNameController.text.trim(),
+      // );
+      // if (updatedUser != null) {
+      //   _showSuccessSnackBar('Profile updated successfully');
+      // } else {
+      //   _showErrorSnackBar('Failed to update profile');
+      // }
+      _showErrorSnackBar('Profile update not yet implemented');
     } catch (e) {
       _showErrorSnackBar('Error updating profile: $e');
-
-      // Handle authentication failure
-      if (e.toString().contains('Authentication failed')) {
-        _handleAuthenticationFailure();
-      }
     } finally {
       setState(() => _isSaving = false);
     }
   }
 
-  void _handleAuthenticationFailure() {
-    _chatManager.clearCache();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
-    });
-  }
-
   Future<void> _logout() async {
+    final theme = Theme.of(context);
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[800],
-        title: const Text('Logout', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(color: Colors.white70),
-        ),
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.blue)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'Logout',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -1578,6 +1619,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         // Use the centralized ApiService logout method
         await ApiService.logout();
         _chatManager.clearCache();
+        SocketService().disconnect();
 
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
@@ -1591,12 +1633,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.green),
     );
@@ -1604,14 +1651,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   @override
   void dispose() {
-    _lastNameController.dispose();
-    _firstNameController.dispose();
     _emailController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     super.dispose();
   }
 }
 
-// Create Group Dialog (updated with better error handling)
+// Create Group Dialog
 class CreateGroupDialog extends StatefulWidget {
   final VoidCallback onGroupCreated;
 
@@ -1647,7 +1694,6 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       setState(() => _isLoading = false);
       _showErrorSnackBar('Failed to load users: $e');
 
-      // Handle authentication failure
       if (e.toString().contains('Authentication failed')) {
         _handleAuthenticationFailure();
       }
@@ -1656,6 +1702,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
   void _handleAuthenticationFailure() {
     _chatManager.clearCache();
+    SocketService().disconnect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
@@ -1665,9 +1712,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: Colors.grey[800],
-      title: const Text('Create Group', style: TextStyle(color: Colors.white)),
+      title: const Text('Create Group'),
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
@@ -1676,39 +1723,21 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             children: [
               TextField(
                 controller: _groupNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Group Name',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[700]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.blue),
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: 'Group Name'),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Select Members:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Select Members:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 8),
               if (_isLoading)
-                const CircularProgressIndicator(color: Colors.blue)
+                const CircularProgressIndicator()
               else if (_availableUsers.isEmpty)
-                const Text(
-                  'No users available',
-                  style: TextStyle(color: Colors.white70),
-                )
+                const Text('No users available')
               else
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 200),
@@ -1720,13 +1749,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       final userId = int.tryParse(user.id);
                       return CheckboxListTile(
                         title: Text(
-                          '${user.firstName} ${user.lastName}',
-                          style: const TextStyle(color: Colors.white),
+                          user.fullName.isNotEmpty ? user.fullName : user.email,
                         ),
-                        subtitle: Text(
-                          user.email,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
+                        subtitle: user.fullName.isNotEmpty
+                            ? Text(user.email)
+                            : null,
                         value:
                             userId != null && _selectedMembers.contains(userId),
                         onChanged: userId != null
@@ -1740,7 +1767,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                                 });
                               }
                             : null,
-                        activeColor: Colors.blue,
+                        activeColor: theme.colorScheme.primary,
                       );
                     },
                   ),
@@ -1752,7 +1779,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       actions: [
         TextButton(
           onPressed: _isCreating ? null : () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          child: const Text('Cancel'),
         ),
         TextButton(
           onPressed: _isCreating ? null : _createGroup,
@@ -1760,12 +1787,12 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.blue,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Create', style: TextStyle(color: Colors.blue)),
+              : Text(
+                  'Create',
+                  style: TextStyle(color: theme.colorScheme.primary),
+                ),
         ),
       ],
     );
@@ -1785,7 +1812,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
         memberIds: _selectedMembers,
       );
 
-      if (group != null) {
+      if (group != null && mounted) {
         widget.onGroupCreated();
         Navigator.pop(context);
         _showSuccessSnackBar('Group created successfully');
@@ -1795,22 +1822,28 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     } catch (e) {
       _showErrorSnackBar('Error creating group: $e');
 
-      // Handle authentication failure
       if (e.toString().contains('Authentication failed')) {
         _handleAuthenticationFailure();
       }
     } finally {
-      setState(() => _isCreating = false);
+      if (mounted) {
+        setState(() => _isCreating = false);
+      }
     }
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.green),
     );

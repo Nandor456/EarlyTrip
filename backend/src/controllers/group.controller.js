@@ -24,7 +24,6 @@ export function createChatGroup(req, res) {
   console.log("Creating chat group with data:", req.body);
 
   const { groupName, memberIds } = req.body;
-  console.log("Creating group with name:", groupName, "members:", memberIds);
 
   if (!groupName || !memberIds || !Array.isArray(memberIds)) {
     return res
@@ -54,9 +53,7 @@ export function createChatGroup(req, res) {
 
     // Include creator in the members list
     const allMemberIds = [...memberIds, creatorId];
-    console.log("All member IDs including creator:", allMemberIds);
 
-    // Create the VALUES clause dynamically
     const values = [];
     const params = [];
 
@@ -72,16 +69,12 @@ export function createChatGroup(req, res) {
       VALUES ${values.join(", ")}
     `;
 
-    console.log("Query:", queryInsertMemberships);
-    console.log("Params:", params);
-
     pool.query(queryInsertMemberships, params, (err) => {
       if (err) {
         console.error("Error adding members to group:", err);
         return res.status(500).json({ message: "Internal server error" });
       }
 
-      // Return the complete group data that matches your frontend expectation
       const queryGetGroup = `
         SELECT group_id, name, admin_id, created_at
         FROM chat_groups 
@@ -94,9 +87,17 @@ export function createChatGroup(req, res) {
           return res.status(500).json({ message: "Internal server error" });
         }
 
-        console.log("Group created successfully:", groupResult.rows[0]);
+        const newGroup = groupResult.rows[0];
+        console.log("Group created successfully:", newGroup);
+
+        // ✅ notify members in real-time
+        const io = req.app.locals.io;
+        allMemberIds.forEach((memberId) => {
+          io.to(`user_${memberId}`).emit("group_created", newGroup);
+        });
+
         res.status(201).json({
-          groups: groupResult.rows[0],
+          groups: newGroup,
         });
       });
     });
@@ -210,9 +211,9 @@ export function sendGroupMessage(req, res) {
       .json({ message: "content and type are required fields" });
   }
   const query = `
-        INSERT INTO messages (group_id, sender_id, content, messsage_type, timestamp)
+        INSERT INTO messages (group_id, sender_id, content, message_type, timestamp)
         VALUES ($1, $2, $3, $4, NOW())
-        RETURNING message_id, sender_id, content, type, timestamp
+        RETURNING message_id, sender_id, content, message_type, timestamp
     `;
   pool.query(query, [groupId, senderId, content, type], (err, result) => {
     if (err) {
@@ -220,6 +221,12 @@ export function sendGroupMessage(req, res) {
       return res.status(500).json({ message: "Internal server error" });
     }
     console.log("Message sent in group:", groupId, result.rows[0]);
+    const savedMessage = result.rows[0];
+
+    const io = req.app.locals.io;
+    io.to(groupId).emit("new_message", savedMessage);
+
+    res.status(201).json({ message: savedMessage });
     res.status(201).json({ message: result.rows[0] });
   });
 }

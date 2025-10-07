@@ -118,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -129,12 +129,12 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Theme.of(context).colorScheme.error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         action: SnackBarAction(
           label: 'Dismiss',
-          textColor: Colors.white,
+          textColor: Theme.of(context).colorScheme.onError,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },
@@ -162,26 +162,34 @@ class _LoginPageState extends State<LoginPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[800],
-        title: const Text(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
           'Guest Access',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
-        content: const Text(
+        content: Text(
           'Continue without an account? Some features may be limited.',
-          style: TextStyle(color: Colors.white70),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
               Navigator.pop(context); // Go back to main app
             },
-            child: const Text('Continue'),
+            child: Text(
+              'Continue',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
           ),
         ],
       ),
@@ -190,14 +198,13 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white70),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -212,18 +219,18 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 20),
 
                 // Welcome text
-                const Text(
+                Text(
                   'Welcome Back!',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  style: textTheme.displaySmall?.copyWith(
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Sign in to your account',
-                  style: TextStyle(fontSize: 16, color: Colors.white70),
+                  style: textTheme.headlineSmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.8),
+                  ),
                 ),
                 const SizedBox(height: 50),
 
@@ -231,36 +238,11 @@ class _LoginPageState extends State<LoginPage> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white),
                   enabled: !_isLoading,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Email',
-                    labelStyle: const TextStyle(color: Colors.white70),
                     hintText: 'Enter your email',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    prefixIcon: const Icon(
-                      Icons.email_outlined,
-                      color: Colors.white70,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[700]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -280,23 +262,16 @@ class _LoginPageState extends State<LoginPage> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
-                  style: const TextStyle(color: Colors.white),
                   enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    labelStyle: const TextStyle(color: Colors.white70),
                     hintText: 'Enter your password',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    prefixIcon: const Icon(
-                      Icons.lock_outline,
-                      color: Colors.white70,
-                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _isPasswordVisible
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: Colors.white70,
                       ),
                       onPressed: _isLoading
                           ? null
@@ -305,25 +280,6 @@ class _LoginPageState extends State<LoginPage> {
                                 _isPasswordVisible = !_isPasswordVisible;
                               });
                             },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[700]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blue),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.red),
                     ),
                   ),
                   validator: (value) {
@@ -343,10 +299,7 @@ class _LoginPageState extends State<LoginPage> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _isLoading ? null : _handleForgotPassword,
-                    child: const Text(
-                      'Forgot Password?',
-                      style: TextStyle(color: Colors.blue),
-                    ),
+                    child: const Text('Forgot Password?'),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -357,76 +310,32 @@ class _LoginPageState extends State<LoginPage> {
                   height: 55,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                      disabledBackgroundColor: Colors.grey[700],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'Sign In',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        : Text('Sign In', style: textTheme.labelLarge),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Guest login option
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : _handleGuestLogin,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: BorderSide(color: Colors.grey[600]!),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue as Guest',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // Sign up link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
                     ),
                     TextButton(
                       onPressed: _isLoading ? null : _handleRegister,
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: const Text('Sign Up'),
                     ),
                   ],
                 ),
@@ -436,7 +345,9 @@ class _LoginPageState extends State<LoginPage> {
                 Center(
                   child: Text(
                     'Secure login with encrypted storage',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.5),
+                    ),
                   ),
                 ),
               ],

@@ -23,57 +23,13 @@ class MyApp extends StatelessWidget {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             title: 'EarlyTrip',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.dark,
-              ),
-              scaffoldBackgroundColor: Colors.grey[900],
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                iconTheme: IconThemeData(color: Colors.white70),
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              outlinedButtonTheme: OutlinedButtonThemeData(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  foregroundColor: Colors.blue,
-                ),
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
-                labelStyle: TextStyle(color: Colors.white70),
-                hintStyle: TextStyle(color: Colors.white38),
-              ),
-              textTheme: const TextTheme(
-                bodyLarge: TextStyle(color: Colors.white),
-                bodyMedium: TextStyle(color: Colors.white70),
-                bodySmall: TextStyle(color: Colors.white60),
-              ),
-            ),
+            // Use the themes you defined in theme.dart
+            theme: ThemeProvider.lightTheme,
+            darkTheme: ThemeProvider.darkTheme,
+            // Tell MaterialApp which theme to use based on the provider's state
+            themeMode: themeProvider.isDarkTheme
+                ? ThemeMode.dark
+                : ThemeMode.light,
             home: const HomePage(),
             debugShowCheckedModeBanner: false,
           );
@@ -141,20 +97,16 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 40),
 
                 // Welcome Text
-                const Text(
+                Text(
                   'Welcome to MyApp',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
 
                 const SizedBox(height: 10),
 
-                const Text(
+                Text(
                   'Please sign in to continue',
-                  style: TextStyle(fontSize: 16, color: Colors.white70),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
 
                 const SizedBox(height: 60),
@@ -172,13 +124,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     },
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Sign In'),
                   ),
                 ),
 
@@ -197,37 +143,11 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     },
-                    child: const Text(
-                      'Sign Up',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Sign Up'),
                   ),
                 ),
 
                 const SizedBox(height: 20),
-
-                // Guest Mode Button - Navigate directly to chat system
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MainChatScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Continue as Guest',
-                      style: TextStyle(fontSize: 16, color: Colors.blue),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

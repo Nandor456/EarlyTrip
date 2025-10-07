@@ -6,11 +6,41 @@ import helmet from "helmet";
 import routes from "./src/routes/index.js";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import { createServer } from "http";
+import { Server } from "socket.io";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Create HTTP server and integrate with Socket.IO
+//----------------------------------------------------------------
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  /* options */
+});
+
+app.locals.io = io;
+
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+
+  socket.on("join_group", (groupId) => {
+    socket.join(groupId);
+    console.log(`Socket ${socket.id} joined group ${groupId}`);
+
+    // notify the client it successfully joined
+    socket.emit(`joined_group_${groupId}`, { groupId, status: "ok" });
+  });
+
+  socket.on("send_message", ({ groupId, message }) => {
+    console.log("Message received for group", groupId, message);
+    // broadcast to everyone in the group
+    io.to(groupId).emit("new_message", { groupId, message });
+  });
+});
+//----------------------------------------------------------------
+
 const PORT = process.env.PORT || 3000;
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -30,6 +60,6 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api", routes);
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT || 3000}`);
 });
