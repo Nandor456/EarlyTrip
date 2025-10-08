@@ -184,6 +184,8 @@ export function deleteChatGroup(req, res) {
 }
 
 export function getGroupMessages(req, res) {
+  console.log("Fetching messages for group:", req.params.group_id);
+
   const groupId = req.params.group_id;
   const query = `
         SELECT message_id, sender_id, content, message_type, timestamp
@@ -227,6 +229,5 @@ export function sendGroupMessage(req, res) {
     io.to(groupId).emit("new_message", savedMessage);
 
     res.status(201).json({ message: savedMessage });
-    res.status(201).json({ message: result.rows[0] });
   });
 }

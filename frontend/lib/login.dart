@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'tokenService.dart'; // Import our token service
-import 'chat.dart'; // Add this line
+import 'services/token_service.dart'; // Import our token service
+import 'screens/main_chat_screen.dart';
+import 'services/api_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
