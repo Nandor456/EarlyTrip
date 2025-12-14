@@ -5,12 +5,22 @@ class SocketService {
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
 
-  late IO.Socket socket;
+  IO.Socket? _socket;
 
   SocketService._internal();
 
+  bool get isInitialized => _socket != null;
+
+  IO.Socket get socket {
+    final s = _socket;
+    if (s == null) {
+      throw StateError('Socket is not initialized. Call connect() first.');
+    }
+    return s;
+  }
+
   void connect(String serverUrl, String accessToken, {String path = "/ws"}) {
-    socket = IO.io(
+    _socket = IO.io(
       serverUrl,
       IO.OptionBuilder()
           .setTransports(['websocket']) // use WebSocket only
@@ -22,11 +32,11 @@ class SocketService {
           .build(),
     );
 
-    socket.on("connect", (_) {
+    _socket!.on("connect", (_) {
       debugPrint("✅ Connected to Socket.IO server");
     });
 
-    socket.on("disconnect", (_) {
+    _socket!.on("disconnect", (_) {
       debugPrint("❌ Disconnected from Socket.IO server");
     });
   }
@@ -44,6 +54,8 @@ class SocketService {
   }
 
   void disconnect() {
-    socket.disconnect();
+    _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
   }
 }

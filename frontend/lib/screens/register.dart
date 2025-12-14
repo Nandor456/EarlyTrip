@@ -102,7 +102,7 @@ class _RegisterPageState extends State<RegisterPage> {
       });
 
       try {
-        const String apiUrl = '${AppConfig.apiBaseUrl}/api/auth/register';
+        const String apiUrl = '${AppConfig.apiBaseUrl}/auth/register';
 
         var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
         request.fields['firstName'] = _firstNameController.text.trim();

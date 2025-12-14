@@ -7,6 +7,8 @@ import 'package:frontend/services/token_service.dart';
 import 'package:frontend/widgets/create_group_dialog.dart';
 import 'package:frontend/services/socket_service.dart';
 import 'package:frontend/config/app_config.dart';
+import 'package:frontend/screens/friends_screen.dart';
+import 'package:frontend/screens/notifications_screen.dart';
 
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -21,6 +23,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   bool _isSocketConnected = false;
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
@@ -58,7 +61,11 @@ class _MainChatScreenState extends State<MainChatScreen> {
     try {
       String accessToken = await TokenService.getAccessToken() ?? '';
       debugPrint("Socket connecting with token: $accessToken");
-      _socketService.connect(AppConfig.apiBaseUrl, accessToken, path: '/ws');
+      _socketService.connect(
+        AppConfig.serverBaseUrl,
+        accessToken,
+        path: AppConfig.socketPath,
+      );
       debugPrint("Socket connecting...");
       _socketService.socket.on("connect", (_) {
         setState(() => _isSocketConnected = true);
@@ -143,10 +150,42 @@ class _MainChatScreenState extends State<MainChatScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateGroupDialog(context),
-        child: const Icon(Icons.add),
+      body: _selectedTabIndex == 0 ? _buildBody() : const FriendsScreen(),
+      floatingActionButton: _selectedTabIndex == 0
+          ? FloatingActionButton(
+              onPressed: () => _showCreateGroupDialog(context),
+              child: const Icon(Icons.add),
+            )
+          : null,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTabIndex,
+        onTap: (index) {
+          if (index == 2) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            );
+            return;
+          }
+
+          if (index == _selectedTabIndex) return;
+          setState(() => _selectedTabIndex = index);
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Chats',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_outline),
+            label: 'Friends',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_none),
+            label: 'Notifications',
+          ),
+        ],
       ),
     );
   }

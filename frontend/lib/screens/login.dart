@@ -53,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
-        const String apiUrl = '${AppConfig.apiBaseUrl}/api/auth/login';
+        const String apiUrl = '${AppConfig.apiBaseUrl}/auth/login';
 
         final response = await http.post(
           Uri.parse(apiUrl),
