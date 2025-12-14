@@ -11,6 +11,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { saveMessageToDB } from "./src/services/database.service.js";
 import authenticateSocketToken from "./src/middlewares/authenticateSocketToken.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
