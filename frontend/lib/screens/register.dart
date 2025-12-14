@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:frontend/config/app_config.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -101,7 +102,7 @@ class _RegisterPageState extends State<RegisterPage> {
       });
 
       try {
-        const String apiUrl = 'http://10.0.2.2:3000/api/auth/register';
+        const String apiUrl = '${AppConfig.apiBaseUrl}/api/auth/register';
 
         var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
         request.fields['firstName'] = _firstNameController.text.trim();

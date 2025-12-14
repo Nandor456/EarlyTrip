@@ -1,3 +1,4 @@
+import "./src/config/env.js";
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
@@ -8,6 +9,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { saveMessageToDB } from "./src/services/database.service.js";
+import authenticateSocketToken from "./src/middlewares/authenticateSocketToken.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -17,10 +20,13 @@ const app = express();
 //----------------------------------------------------------------
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  /* options */
+  path: "/ws",
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
 app.locals.io = io;
+
+io.use(authenticateSocketToken);
 
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
@@ -29,16 +35,36 @@ io.on("connection", (socket) => {
     socket.join(groupId);
     console.log(`Socket ${socket.id} joined group ${groupId}`);
 
-    // notify the client it successfully joined
-    socket.emit(`joined_group_${groupId}`, { groupId, status: "ok" });
+    socket.emit("joined_group", { groupId, status: "ok" });
   });
 
-  socket.on("send_message", ({ groupId, message }) => {
+  socket.on("send_message", async ({ groupId, message }) => {
     console.log("Message received for group", groupId, message);
-    // broadcast to everyone in the group
-    io.to(groupId).emit("new_message", { groupId, message });
+    console.log("user", socket.user);
+
+    try {
+      const { content, type } = message;
+      const senderId = socket.user.user_id;
+      console.log("senderID", senderId);
+
+      const savedMessage = await saveMessageToDB(
+        groupId,
+        senderId,
+        content,
+        type
+      );
+
+      // 2. Broadcast to all in group
+      io.to(groupId).emit("new_message", savedMessage);
+
+      console.log("Message saved & broadcasted:", savedMessage);
+    } catch (err) {
+      console.error("Error saving socket message:", err);
+      socket.emit("error_message", { error: "Failed to save message" });
+    }
   });
 });
+
 //----------------------------------------------------------------
 
 const PORT = process.env.PORT || 3000;

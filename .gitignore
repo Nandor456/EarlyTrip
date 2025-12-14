@@ -37,6 +37,9 @@ pids/
 *.seed
 *.pid.lock
 
+# User uploads (keep folder via .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep
 # General
 .DS_Store
 Thumbs.db

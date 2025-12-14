@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'services/token_service.dart'; // Import our token service
-import 'screens/main_chat_screen.dart';
-import 'services/api_service.dart';
+import '../services/token_service.dart'; // Import our token service
+import 'main_chat_screen.dart';
+import '../services/api_service.dart';
+import 'package:frontend/config/app_config.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -52,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
-        const String apiUrl = 'http://10.0.2.2:3000/api/auth/login';
+        const String apiUrl = '${AppConfig.apiBaseUrl}/api/auth/login';
 
         final response = await http.post(
           Uri.parse(apiUrl),

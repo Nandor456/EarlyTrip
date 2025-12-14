@@ -1,10 +1,10 @@
 // main.dart - Simplified without Dark/Light Theme
 import 'package:flutter/material.dart';
-import 'login.dart';
-import 'register.dart';
+import 'screens/login.dart';
+import 'screens/register.dart';
 import 'services/token_service.dart';
 import 'package:provider/provider.dart';
-import 'theme.dart';
+import 'utils/theme.dart';
 import 'screens/main_chat_screen.dart';
 
 void main() async {

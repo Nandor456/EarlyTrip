@@ -1,4 +1,5 @@
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:flutter/foundation.dart';
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -8,22 +9,25 @@ class SocketService {
 
   SocketService._internal();
 
-  void connect(String serverUrl, {String path = "/ws"}) {
+  void connect(String serverUrl, String accessToken, {String path = "/ws"}) {
     socket = IO.io(
       serverUrl,
       IO.OptionBuilder()
           .setTransports(['websocket']) // use WebSocket only
           .setPath(path) // match server path, e.g. "/ws"
+          .setExtraHeaders({
+            'authorization': 'Bearer $accessToken',
+          }) // Send as header
           .enableAutoConnect()
           .build(),
     );
 
     socket.on("connect", (_) {
-      print("✅ Connected to Socket.IO server");
+      debugPrint("✅ Connected to Socket.IO server");
     });
 
     socket.on("disconnect", (_) {
-      print("❌ Disconnected from Socket.IO server");
+      debugPrint("❌ Disconnected from Socket.IO server");
     });
   }
 

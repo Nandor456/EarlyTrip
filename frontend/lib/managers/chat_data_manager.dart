@@ -23,11 +23,6 @@ class ChatDataManager {
     try {
       final userData = await ChatApiService.getUserData();
       _currentUser = userData;
-      debugPrint('Message #User initialized: ${_currentUser?.email}');
-      debugPrint('Message #User ID: ${_currentUser?.id}');
-      debugPrint(
-        'Message #User Name: ${_currentUser?.firstName} ${_currentUser?.lastName}',
-      );
     } catch (e) {
       throw Exception('Failed to initialize current user: $e');
     }

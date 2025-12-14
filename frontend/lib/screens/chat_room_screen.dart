@@ -7,6 +7,7 @@ import 'package:frontend/services/chat_api_service.dart';
 import 'package:frontend/services/socket_service.dart';
 import 'package:frontend/widgets/message_bubble.dart';
 import 'package:frontend/utils/date_fomatter.dart';
+import 'package:frontend/config/app_config.dart';
 
 class ChatRoomScreen extends StatefulWidget {
   final ChatGroup group;
@@ -66,14 +67,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     widget.socketService.onNewMessage((data) {
       try {
         final messageData = data as Map<String, dynamic>;
+        debugPrint("New message data: $messageData");
         final groupId = messageData['groupId']?.toString();
-
+        debugPrint("Received new message for group $groupId");
         if (groupId == widget.group.id) {
           final message = Message.fromJson(messageData['message']);
           _onNewMessage(message);
         }
       } catch (e) {
-        print('Error parsing new message: $e');
+        debugPrint('Error parsing new message: $e');
       }
     });
 
@@ -98,12 +100,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   Future<void> _loadMessages() async {
     try {
       final messages = await _chatManager.getGroupMessages(widget.group.id);
-      debugPrint(
-        'Loaded ${messages.length} messages for group ${widget.group.id}',
-      );
-      debugPrint(
-        'messages: ${messages.map((m) => [m.content, m.senderId, m.id, m.timestamp]).toList()}',
-      );
       setState(() {
         _messages = messages;
       });
@@ -131,7 +127,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     // Only add if it's not already in the list (avoid duplicates)
     if (!_messages.any((m) => m.id == message.id)) {
       setState(() {
-        debugPrint('message added to chat room: ${message.content}');
         _messages.add(message);
       });
       _chatManager.addMessageToCache(widget.group.id, message);
@@ -253,11 +248,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                           message.senderId == _chatManager.currentUser?.id;
                       final sender = _chatManager.getUserById(message.senderId);
 
-                      // debugPrint('Message #$index');
-                      // debugPrint('Sender ID: ${message.senderId}');
-                      // debugPrint('Is Me: $isMe');
-                      // debugPrint('Sender object: $sender\n');
-
                       return MessageBubble(
                         message: message,
                         isMe: isMe,
@@ -338,9 +328,12 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           'type': MessageType.text.toString().split('.').last,
           'timestamp': DateTime.now().toIso8601String(),
         };
-
+        debugPrint("Group ID: ${widget.group.id}"); //ok
         widget.socketService.sendMessage(widget.group.id, messageData);
       } else {
+        debugPrint(
+          "=============================== NEM JO ===============================",
+        );
         // Fallback to HTTP API if Socket.IO is not connected
         final message = await ChatApiService.sendMessage(
           widget.group.id,
@@ -445,7 +438,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                         backgroundColor: theme.colorScheme.primary,
                         backgroundImage: member.profilePicture != null
                             ? NetworkImage(
-                                'http://10.0.2.2:3000/${member.profilePicture}',
+                                AppConfig.absoluteUrl(member.profilePicture!),
                               )
                             : null,
                         child: member.profilePicture == null

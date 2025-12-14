@@ -3,9 +3,10 @@ import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/models/chat_group.dart';
 import 'package:frontend/screens/chat_room_screen.dart';
 import 'package:frontend/screens/profile_settings_screen.dart';
+import 'package:frontend/services/token_service.dart';
 import 'package:frontend/widgets/create_group_dialog.dart';
 import 'package:frontend/services/socket_service.dart';
-import 'package:frontend/screens/chat_room_screen.dart';
+import 'package:frontend/config/app_config.dart';
 
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -55,19 +56,21 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
   Future<void> _initializeSocket() async {
     try {
-      _socketService.connect('http://10.0.2.2:3000', path: '/ws');
-
+      String accessToken = await TokenService.getAccessToken() ?? '';
+      debugPrint("Socket connecting with token: $accessToken");
+      _socketService.connect(AppConfig.apiBaseUrl, accessToken, path: '/ws');
+      debugPrint("Socket connecting...");
       _socketService.socket.on("connect", (_) {
         setState(() => _isSocketConnected = true);
-        print('Connected to Socket.IO server');
+        debugPrint('Connected to Socket.IO server');
       });
 
       _socketService.socket.on("disconnect", (_) {
         setState(() => _isSocketConnected = false);
-        print('Disconnected from Socket.IO server');
+        debugPrint('Disconnected from Socket.IO server');
       });
     } catch (e) {
-      print('Socket connection failed: $e');
+      debugPrint('Socket connection failed: $e');
     }
   }
 
@@ -121,7 +124,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 backgroundImage:
                     _chatManager.currentUser?.profilePicture != null
                     ? NetworkImage(
-                        'http://10.0.2.2:3000/${_chatManager.currentUser!.profilePicture}',
+                        AppConfig.absoluteUrl(
+                          _chatManager.currentUser!.profilePicture!,
+                        ),
                       )
                     : null,
                 child: _chatManager.currentUser?.profilePicture == null
@@ -218,7 +223,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
               leading: CircleAvatar(
                 backgroundColor: theme.colorScheme.primary,
                 backgroundImage: group.groupImage != null
-                    ? NetworkImage('http://10.0.2.2:3000/${group.groupImage}')
+                    ? NetworkImage(AppConfig.absoluteUrl(group.groupImage!))
                     : null,
                 child: group.groupImage == null
                     ? Text(

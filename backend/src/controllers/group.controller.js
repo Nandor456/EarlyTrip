@@ -1,5 +1,5 @@
 import pool from "../config/database.config.js";
-
+import { saveMessageToDB } from "../services/database.service.js";
 export function getGroups(req, res) {
   console.log("Fetching groups for user:", req.user.user_id);
   const query = `
@@ -203,7 +203,7 @@ export function getGroupMessages(req, res) {
   });
 }
 
-export function sendGroupMessage(req, res) {
+export async function sendGroupMessage(req, res) {
   const groupId = req.params.group_id;
   const { content, type } = req.body;
   const senderId = req.user.user_id;
@@ -212,22 +212,18 @@ export function sendGroupMessage(req, res) {
       .status(400)
       .json({ message: "content and type are required fields" });
   }
-  const query = `
-        INSERT INTO messages (group_id, sender_id, content, message_type, timestamp)
-        VALUES ($1, $2, $3, $4, NOW())
-        RETURNING message_id, sender_id, content, message_type, timestamp
-    `;
-  pool.query(query, [groupId, senderId, content, type], (err, result) => {
-    if (err) {
-      console.error("Error sending message:", err);
-      return res.status(500).json({ message: "Internal server error" });
-    }
-    console.log("Message sent in group:", groupId, result.rows[0]);
-    const savedMessage = result.rows[0];
-
+  try {
+    const savedMessage = await saveMessageToDB(
+      groupId,
+      senderId,
+      content,
+      type
+    );
     const io = req.app.locals.io;
     io.to(groupId).emit("new_message", savedMessage);
-
     res.status(201).json({ message: savedMessage });
-  });
+  } catch (err) {
+    console.error("Error sending group message:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
 }

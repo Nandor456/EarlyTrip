@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/models/message.dart';
 import 'package:frontend/models/user.dart';
 import 'package:frontend/utils/date_fomatter.dart';
+import 'package:frontend/config/app_config.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -117,7 +118,7 @@ class MessageBubble extends StatelessWidget {
       radius: 16,
       backgroundColor: theme.colorScheme.primary,
       backgroundImage: sender?.profilePicture != null
-          ? NetworkImage('http://10.0.2.2:3000/${sender!.profilePicture}')
+          ? NetworkImage(AppConfig.absoluteUrl(sender!.profilePicture!))
           : null,
       child: sender?.profilePicture == null
           ? Text(
@@ -151,7 +152,7 @@ class MessageBubble extends StatelessWidget {
             image: message.mediaUrl != null
                 ? DecorationImage(
                     image: NetworkImage(
-                      'http://10.0.2.2:3000/${message.mediaUrl}',
+                      AppConfig.absoluteUrl(message.mediaUrl!),
                     ),
                     fit: BoxFit.cover,
                   )

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/socket_service.dart';
-import 'package:frontend/theme.dart';
+import 'package:frontend/utils/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:frontend/config/app_config.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -65,7 +66,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     backgroundImage:
                         _chatManager.currentUser?.profilePicture != null
                         ? NetworkImage(
-                            'http://10.0.2.2:3000/${_chatManager.currentUser!.profilePicture}',
+                            AppConfig.absoluteUrl(
+                              _chatManager.currentUser!.profilePicture!,
+                            ),
                           )
                         : null,
                     child: _chatManager.currentUser?.profilePicture == null
