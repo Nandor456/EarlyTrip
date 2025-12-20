@@ -66,12 +66,17 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     // Listen for new messages
     widget.socketService.onNewMessage((data) {
       try {
-        final messageData = data as Map<String, dynamic>;
+        final messageData = (data as Map).cast<String, dynamic>();
         debugPrint("New message data: $messageData");
-        final groupId = messageData['groupId']?.toString();
+
+        // Server emits the saved message directly:
+        // { message_id, sender_id, group_id, content, message_type, timestamp }
+        final groupId = (messageData['group_id'] ?? messageData['groupId'])
+            ?.toString();
         debugPrint("Received new message for group $groupId");
+
         if (groupId == widget.group.id) {
-          final message = Message.fromJson(messageData['message']);
+          final message = Message.fromJson(messageData);
           _onNewMessage(message);
         }
       } catch (e) {

@@ -20,17 +20,28 @@ class SocketService {
   }
 
   void connect(String serverUrl, String accessToken, {String path = "/ws"}) {
-    _socket = IO.io(
-      serverUrl,
-      IO.OptionBuilder()
-          .setTransports(['websocket']) // use WebSocket only
-          .setPath(path) // match server path, e.g. "/ws"
-          .setExtraHeaders({
-            'authorization': 'Bearer $accessToken',
-          }) // Send as header
-          .enableAutoConnect()
-          .build(),
+    // If we're reconnecting (e.g. after logout/login), fully dispose the old
+    // connection first. socket_io_client can otherwise reuse a cached manager.
+    if (_socket != null) {
+      disconnect();
+    }
+
+    final redactedToken = accessToken.isEmpty
+        ? '<empty>'
+        : '${accessToken.substring(0, accessToken.length >= 8 ? 6 : 1)}…${accessToken.substring(accessToken.length >= 8 ? accessToken.length - 2 : accessToken.length - 1)}';
+    debugPrint(
+      'Socket.IO connecting to $serverUrl$path (token: $redactedToken)',
     );
+
+    _socket = IO.io(serverUrl, <String, dynamic>{
+      'transports': ['websocket'],
+      'path': path,
+      'extraHeaders': {'authorization': 'Bearer $accessToken'},
+      'autoConnect': true,
+      'reconnection': true,
+      // Critical: do not reuse a cached Manager between logins.
+      'forceNew': true,
+    });
 
     _socket!.on("connect", (_) {
       debugPrint("✅ Connected to Socket.IO server");
@@ -38,6 +49,26 @@ class SocketService {
 
     _socket!.on("disconnect", (_) {
       debugPrint("❌ Disconnected from Socket.IO server");
+    });
+
+    _socket!.on("connect_error", (err) {
+      debugPrint("❌ Socket.IO connect_error: $err");
+    });
+
+    _socket!.on("error", (err) {
+      debugPrint("❌ Socket.IO error: $err");
+    });
+
+    _socket!.on("reconnect_attempt", (attempt) {
+      debugPrint("↻ Socket.IO reconnect_attempt: $attempt");
+    });
+
+    _socket!.on("reconnect_error", (err) {
+      debugPrint("❌ Socket.IO reconnect_error: $err");
+    });
+
+    _socket!.on("reconnect_failed", (_) {
+      debugPrint("❌ Socket.IO reconnect_failed");
     });
   }
 

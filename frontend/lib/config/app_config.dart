@@ -1,7 +1,8 @@
 class AppConfig {
   /// For Android emulator use `http://10.0.2.2:<port>`.
+  /// For ios use `http://localhost:<port>`.
   /// For physical devices use your machine LAN IP.
-  static const String serverBaseUrl = 'http://10.0.2.2:3000';
+  static const String serverBaseUrl = 'http://localhost:3000';
 
   static const String apiBaseUrl = '$serverBaseUrl/api';
   static const String socketPath = '/ws';

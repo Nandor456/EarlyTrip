@@ -5,6 +5,7 @@ import '../services/token_service.dart'; // Import our token service
 import 'main_chat_screen.dart';
 import '../services/api_service.dart';
 import 'package:frontend/config/app_config.dart';
+import 'register.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -146,17 +147,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleRegister() {
-    // Navigate to registration page when implemented
-    Navigator.pushNamed(context, '/register').catchError((error) {
-      _showErrorMessage('Registration page not available yet');
-    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RegisterPage()),
+    );
   }
 
   void _handleForgotPassword() {
-    // Navigate to forgot password page when implemented
-    Navigator.pushNamed(context, '/forgot-password').catchError((error) {
-      _showErrorMessage('Forgot password feature coming soon');
-    });
+    _showErrorMessage('Forgot password feature coming soon');
   }
 
   Future<void> _handleGuestLogin() async {

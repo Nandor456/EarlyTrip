@@ -32,27 +32,37 @@ class _MainChatScreenState extends State<MainChatScreen> {
   }
 
   Future<void> _initializeData() async {
-    try {
+    if (mounted) {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
       });
+    }
 
+    try {
+      debugPrint('Initializing current user...');
       await _chatManager.initializeCurrentUser();
+      debugPrint(
+        'Current user initialized: ${_chatManager.currentUser?.firstName}',
+      );
       await _chatManager.loadChatGroups();
+      debugPrint(
+        'Chat groups loaded: ${_chatManager.chatGroups.length} groups',
+      );
 
       // Initialize Socket.IO connection
       await _initializeSocket();
-
-      setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() => _errorMessage = e.toString());
+      }
 
       if (e.toString().contains('Authentication failed')) {
         _handleAuthenticationFailure();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -60,21 +70,34 @@ class _MainChatScreenState extends State<MainChatScreen> {
   Future<void> _initializeSocket() async {
     try {
       String accessToken = await TokenService.getAccessToken() ?? '';
-      debugPrint("Socket connecting with token: $accessToken");
       _socketService.connect(
         AppConfig.serverBaseUrl,
         accessToken,
         path: AppConfig.socketPath,
       );
       debugPrint("Socket connecting...");
+
+      // Prevent duplicate handlers if this screen is recreated.
+      _socketService.socket.off("connect");
+      _socketService.socket.off("disconnect");
+      _socketService.socket.off("connect_error");
+
       _socketService.socket.on("connect", (_) {
+        if (!mounted) return;
         setState(() => _isSocketConnected = true);
         debugPrint('Connected to Socket.IO server');
       });
 
       _socketService.socket.on("disconnect", (_) {
+        if (!mounted) return;
         setState(() => _isSocketConnected = false);
         debugPrint('Disconnected from Socket.IO server');
+      });
+
+      _socketService.socket.on("connect_error", (err) {
+        if (!mounted) return;
+        setState(() => _isSocketConnected = false);
+        debugPrint('Socket connect_error: $err');
       });
     } catch (e) {
       debugPrint('Socket connection failed: $e');
@@ -162,9 +185,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
         onTap: (index) {
           if (index == 2) {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const NotificationsScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
             );
             return;
           }

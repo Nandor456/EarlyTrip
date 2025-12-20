@@ -1,4 +1,6 @@
+# -------------------------------------------------------------------------
 # Flutter/Dart
+# -------------------------------------------------------------------------
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -6,21 +8,79 @@
 .pub-cache/
 .pub/
 build/
+
+# Symbolication related
+app.*.symbols
+app.*.map.json
+
+
+
+# -------------------------------------------------------------------------
+# Android
+# -------------------------------------------------------------------------
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Android Studio / IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Keys and Secrets (DO NOT TRACK)
+*.jks
+*.keystore
+*.p12
+*.pem
+google-services.json
+
+# -------------------------------------------------------------------------
+# iOS / macOS
+# -------------------------------------------------------------------------
+ios/.bundle/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.framework
 ios/ServiceDefinitions.json
-android/.gradle/
-android/app/debug
-android/app/profile
-android/app/release
-*.iml
-*.lock
+ios/Pods/
+ios/.symlinks/
+**/doc/api/
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# -------------------------------------------------------------------------
+# Web
+# -------------------------------------------------------------------------
+build/web/
+
+# -------------------------------------------------------------------------
+# Tools / Environment
+# -------------------------------------------------------------------------
+.env*
+!.env.example  # Keep the example file but ignore actual secrets
+.vscode/
+.history/
 *.log
 *.tmp
 *.swp
-.idea/
-.vscode/
-*.jks
+
+# -------------------------------------------------------------------------
+# Testing & Coverage
+# -------------------------------------------------------------------------
+coverage/
+test/.test_coverage
 
 # Node.js
 node_modules/

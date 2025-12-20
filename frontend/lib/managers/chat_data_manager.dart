@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:frontend/models/chat_group.dart';
 import 'package:frontend/models/user.dart';
 import 'package:frontend/models/message.dart';
@@ -21,7 +21,9 @@ class ChatDataManager {
 
   Future<void> initializeCurrentUser() async {
     try {
+      debugPrint('getting current user...');
       final userData = await ChatApiService.getUserData();
+      debugPrint("current user: ${userData.firstName}");
       _currentUser = userData;
     } catch (e) {
       throw Exception('Failed to initialize current user: $e');

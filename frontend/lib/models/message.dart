@@ -16,8 +16,10 @@ class Message {
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    final rawType = (json['type'] ?? json['message_type'])?.toString();
+
     MessageType messageType;
-    switch (json['type']) {
+    switch (rawType) {
       case 'image':
         messageType = MessageType.image;
         break;
@@ -29,12 +31,12 @@ class Message {
     }
 
     return Message(
-      id: json['message_id'].toString(),
-      senderId: json['sender_id'].toString(),
+      id: (json['message_id'] ?? json['id']).toString(),
+      senderId: (json['sender_id'] ?? json['senderId']).toString(),
       content: json['content'] ?? '',
       type: messageType,
       timestamp: DateTime.parse(json['timestamp']),
-      mediaUrl: json['media_url'],
+      mediaUrl: (json['media_url'] ?? json['mediaUrl'])?.toString(),
     );
   }
 }

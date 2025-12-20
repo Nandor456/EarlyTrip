@@ -9,9 +9,8 @@ class ChatApiService {
     try {
       final response = await ApiService.authenticatedRequest('/groups');
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-      return (data['groups'] as List)
-          .map((group) => ChatGroup.fromJson(group))
-          .toList();
+      final groups = (data['groups'] as List?) ?? const [];
+      return groups.map((group) => ChatGroup.fromJson(group)).toList();
     } catch (e) {
       if (e is AuthException) {
         throw Exception('Authentication failed: ${e.message}');
@@ -52,9 +51,8 @@ class ChatApiService {
         '/groups/$groupId/messages?limit=$limit&offset=$offset',
       );
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-      return (data['messages'] as List)
-          .map((message) => Message.fromJson(message))
-          .toList();
+      final messages = (data['messages'] as List?) ?? const [];
+      return messages.map((message) => Message.fromJson(message)).toList();
     } catch (e) {
       if (e is AuthException) {
         throw Exception('Authentication failed: ${e.message}');
@@ -134,9 +132,8 @@ class ChatApiService {
     try {
       final response = await ApiService.authenticatedRequest('/users');
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-      return (data['users'] as List)
-          .map((user) => User.fromJson(user))
-          .toList();
+      final users = (data['users'] as List?) ?? const [];
+      return users.map((user) => User.fromJson(user)).toList();
     } catch (e) {
       if (e is AuthException) {
         throw Exception('Authentication failed: ${e.message}');
@@ -156,9 +153,8 @@ class ChatApiService {
         '/groups/$groupId/members',
       );
       final data = ApiResponseHandler.handleResponse(response, (data) => data);
-      return (data['members'] as List)
-          .map((user) => User.fromJson(user))
-          .toList();
+      final members = (data['members'] as List?) ?? const [];
+      return members.map((user) => User.fromJson(user)).toList();
     } catch (e) {
       if (e is AuthException) {
         throw Exception('Authentication failed: ${e.message}');

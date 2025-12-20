@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:frontend/config/app_config.dart';
 import 'token_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
+
+  static const Duration _defaultTimeout = Duration(seconds: 15);
 
   // Prevent multiple simultaneous refresh attempts
   static bool _isRefreshing = false;
@@ -26,6 +31,13 @@ class ApiService {
       ...?additionalHeaders, // Spread additional headers if provided
     };
 
+    final safeHeaders = Map<String, String>.from(headers);
+    if (safeHeaders.containsKey('Authorization')) {
+      safeHeaders['Authorization'] = 'Bearer ***';
+    }
+    debugPrint(
+      'Making $method request to $endpoint with headers: $safeHeaders and body: $body',
+    );
     http.Response response = await _makeHttpRequest(
       endpoint,
       method,
@@ -35,6 +47,7 @@ class ApiService {
 
     // If token expired, try to refresh
     if (response.statusCode == 401) {
+      debugPrint('Access token expired, attempting to refresh...');
       try {
         final responseBody = json.decode(response.body);
         final errorCode = responseBody['code'];
@@ -58,7 +71,7 @@ class ApiService {
         throw AuthException('Authentication error occurred.');
       }
     }
-
+    debugPrint('API Response [${response.statusCode}]: ${response.body}');
     return response;
   }
 
@@ -73,31 +86,43 @@ class ApiService {
     try {
       switch (method.toUpperCase()) {
         case 'POST':
-          return await http.post(
-            uri,
-            headers: headers,
-            body: body != null ? json.encode(body) : null,
-          );
+          return await http
+              .post(
+                uri,
+                headers: headers,
+                body: body != null ? json.encode(body) : null,
+              )
+              .timeout(_defaultTimeout);
         case 'PUT':
-          return await http.put(
-            uri,
-            headers: headers,
-            body: body != null ? json.encode(body) : null,
-          );
+          return await http
+              .put(
+                uri,
+                headers: headers,
+                body: body != null ? json.encode(body) : null,
+              )
+              .timeout(_defaultTimeout);
         case 'DELETE':
-          return await http.delete(uri, headers: headers);
+          return await http
+              .delete(uri, headers: headers)
+              .timeout(_defaultTimeout);
         case 'PATCH':
-          return await http.patch(
-            uri,
-            headers: headers,
-            body: body != null ? json.encode(body) : null,
-          );
+          return await http
+              .patch(
+                uri,
+                headers: headers,
+                body: body != null ? json.encode(body) : null,
+              )
+              .timeout(_defaultTimeout);
         case 'GET':
         default:
-          return await http.get(uri, headers: headers);
+          return await http.get(uri, headers: headers).timeout(_defaultTimeout);
       }
+    } on TimeoutException {
+      throw NetworkException(
+        'Request timed out after ${_defaultTimeout.inSeconds}s: $uri',
+      );
     } catch (e) {
-      throw NetworkException('Network error: ${e.toString()}');
+      throw NetworkException('Network error calling $uri: ${e.toString()}');
     }
   }
 
@@ -119,11 +144,13 @@ class ApiService {
         return false;
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/refresh'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'refreshToken': refreshToken}),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'refreshToken': refreshToken}),
+          )
+          .timeout(_defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -182,14 +209,33 @@ class ApiResponseHandler {
     http.Response response,
     T Function(Map<String, dynamic>) fromJson,
   ) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final data = json.decode(response.body);
-      return fromJson(data);
-    } else {
-      final errorData = json.decode(response.body);
-      final message = errorData['message'] ?? 'An error occurred';
-      throw ApiException(message, response.statusCode);
+    final status = response.statusCode;
+    final body = response.body;
+
+    if (status >= 200 && status < 300) {
+      if (status == 204 || body.trim().isEmpty) {
+        return fromJson(<String, dynamic>{});
+      }
+
+      try {
+        final data = json.decode(body);
+        return fromJson((data as Map).cast<String, dynamic>());
+      } catch (e) {
+        throw ApiException('Invalid server response', status);
+      }
     }
+
+    Map<String, dynamic> errorData = <String, dynamic>{};
+    if (body.trim().isNotEmpty) {
+      try {
+        errorData = (json.decode(body) as Map).cast<String, dynamic>();
+      } catch (_) {
+        // Keep fallback empty map
+      }
+    }
+
+    final message = (errorData['message'] as String?) ?? 'An error occurred';
+    throw ApiException(message, status);
   }
 }
 
