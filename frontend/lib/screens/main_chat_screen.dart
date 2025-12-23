@@ -146,11 +146,19 @@ class _MainChatScreenState extends State<MainChatScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final String title = switch (_selectedTabIndex) {
+      0 => 'Chats',
+      1 => 'Friends',
+      2 => 'Notifications',
+      _ => 'Chats',
+    };
+
     return Scaffold(
       appBar: AppBar(
-        title: const Padding(
-          padding: EdgeInsets.only(left: 12.0),
-          child: Text('Chats'),
+        title: Padding(
+          padding: const EdgeInsets.only(left: 12.0),
+          child: Text(title),
         ),
         automaticallyImplyLeading: false,
         actions: [
@@ -191,7 +199,12 @@ class _MainChatScreenState extends State<MainChatScreen> {
           ),
         ],
       ),
-      body: _selectedTabIndex == 0 ? _buildBody() : const FriendsScreen(),
+      body: switch (_selectedTabIndex) {
+        0 => _buildBody(),
+        1 => const FriendsScreen(),
+        2 => const NotificationsScreen(showAppBar: false),
+        _ => _buildBody(),
+      },
       floatingActionButton: _selectedTabIndex == 0
           ? FloatingActionButton(
               onPressed: () => _showCreateGroupDialog(context),
@@ -201,13 +214,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedTabIndex,
         onTap: (index) {
-          if (index == 2) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-            );
-            return;
-          }
-
           if (index == _selectedTabIndex) return;
           setState(() => _selectedTabIndex = index);
         },
