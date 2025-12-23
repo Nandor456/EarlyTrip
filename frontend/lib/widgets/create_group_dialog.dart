@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/config/app_config.dart';
 import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/models/user.dart';
 import 'package:frontend/services/friends_api_service.dart';
@@ -18,10 +19,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final TextEditingController _searchController = TextEditingController();
   final List<int> _selectedMembers = [];
   final ChatDataManager _chatManager = ChatDataManager();
+
   List<User> _availableUsers = [];
   bool _isLoading = true;
   bool _isCreating = false;
-
   String _searchQuery = '';
 
   @override
@@ -35,9 +36,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       setState(() => _isLoading = true);
       final friends = await FriendsApiService.getFriends();
       final currentUserId = _chatManager.currentUser?.id;
+
       _availableUsers = friends
           .where((user) => currentUserId == null || user.id != currentUserId)
           .toList();
+
       setState(() => _isLoading = false);
     } catch (e) {
       setState(() => _isLoading = false);
@@ -62,6 +65,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bool isGroupChat = _selectedMembers.length > 1;
 
     final filteredUsers = _searchQuery.trim().isEmpty
         ? _availableUsers
@@ -72,7 +76,28 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           }).toList();
 
     return AlertDialog(
-      title: const Text('Create Group'),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+      contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      title: Row(
+        children: [
+          Icon(Icons.group_add, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Create chat',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: _isCreating ? null : () => Navigator.pop(context),
+            tooltip: 'Close',
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
@@ -81,9 +106,17 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             children: [
               TextField(
                 controller: _groupNameController,
-                decoration: const InputDecoration(labelText: 'Group Name'),
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: isGroupChat
+                      ? 'Group name'
+                      : 'Group name (optional)',
+                  helperText: isGroupChat
+                      ? 'Required for group chats (2+ friends).'
+                      : 'Optional for 1:1 chats.',
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextField(
                 controller: _searchController,
                 textInputAction: TextInputAction.search,
@@ -104,55 +137,119 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                         ),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Select Members:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else if (_availableUsers.isEmpty)
-                const Text('No friends available')
-              else if (filteredUsers.isEmpty)
-                const Text('No friends match your search')
-              else
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: filteredUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = filteredUsers[index];
-                      final userId = int.tryParse(user.id);
-                      return CheckboxListTile(
-                        title: Text(
-                          user.fullName.isNotEmpty ? user.fullName : user.email,
+              const SizedBox(height: 12),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Friends',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Selected: ${_selectedMembers.length}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_availableUsers.isEmpty)
+                        Text(
+                          'No friends available',
+                          style: theme.textTheme.bodyMedium,
+                        )
+                      else if (filteredUsers.isEmpty)
+                        Text(
+                          'No friends match your search',
+                          style: theme.textTheme.bodyMedium,
+                        )
+                      else
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: filteredUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = filteredUsers[index];
+                              final userId = int.tryParse(user.id);
+                              final checked =
+                                  userId != null &&
+                                  _selectedMembers.contains(userId);
+
+                              return CheckboxListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                secondary: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: theme.colorScheme.primary,
+                                  backgroundImage: user.profilePicture != null
+                                      ? NetworkImage(
+                                          AppConfig.absoluteUrl(
+                                            user.profilePicture!,
+                                          ),
+                                        )
+                                      : null,
+                                  child: user.profilePicture == null
+                                      ? Text(
+                                          user.getInitials(),
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onPrimary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                title: Text(
+                                  user.fullName.isNotEmpty
+                                      ? user.fullName
+                                      : user.email,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: user.fullName.isNotEmpty
+                                    ? Text(
+                                        user.email,
+                                        style: theme.textTheme.bodySmall,
+                                      )
+                                    : null,
+                                value: checked,
+                                onChanged: userId != null && !_isCreating
+                                    ? (selected) {
+                                        setState(() {
+                                          if (selected == true) {
+                                            if (!_selectedMembers.contains(
+                                              userId,
+                                            )) {
+                                              _selectedMembers.add(userId);
+                                            }
+                                          } else {
+                                            _selectedMembers.remove(userId);
+                                          }
+                                        });
+                                      }
+                                    : null,
+                                activeColor: theme.colorScheme.primary,
+                              );
+                            },
+                          ),
                         ),
-                        subtitle: user.fullName.isNotEmpty
-                            ? Text(user.email)
-                            : null,
-                        value:
-                            userId != null && _selectedMembers.contains(userId),
-                        onChanged: userId != null
-                            ? (selected) {
-                                setState(() {
-                                  if (selected == true) {
-                                    _selectedMembers.add(userId);
-                                  } else {
-                                    _selectedMembers.remove(userId);
-                                  }
-                                });
-                              }
-                            : null,
-                        activeColor: theme.colorScheme.primary,
-                      );
-                    },
+                    ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -162,25 +259,29 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
           onPressed: _isCreating ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        TextButton(
+        FilledButton(
           onPressed: _isCreating ? null : _createGroup,
           child: _isCreating
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 18,
+                  height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(
-                  'Create',
-                  style: TextStyle(color: theme.colorScheme.primary),
-                ),
+              : const Text('Create'),
         ),
       ],
     );
   }
 
   Future<void> _createGroup() async {
-    if (_groupNameController.text.trim().isEmpty) {
+    if (_selectedMembers.isEmpty) {
+      _showErrorSnackBar('Select at least one friend');
+      return;
+    }
+
+    // Group name is only required for group chats (2+ selected friends).
+    if (_selectedMembers.length > 1 &&
+        _groupNameController.text.trim().isEmpty) {
       _showErrorSnackBar('Group name is required');
       return;
     }
@@ -189,6 +290,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
     try {
       final group = await _chatManager.createChatGroup(
+        // For 1:1 chats, backend auto-names the group to the other user.
         name: _groupNameController.text.trim(),
         memberIds: _selectedMembers,
       );
@@ -226,7 +328,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   void _showSuccessSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+      ),
     );
   }
 

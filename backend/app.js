@@ -32,6 +32,14 @@ io.use(authenticateSocketToken);
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
+  // Join a per-user room so the server can push events to a specific user.
+  // authenticateSocketToken attaches `socket.user`.
+  if (socket.user?.user_id != null) {
+    const room = `user_${socket.user.user_id}`;
+    socket.join(room);
+    console.log(`Socket ${socket.id} joined user room ${room}`);
+  }
+
   socket.on("join_group", (groupId) => {
     socket.join(groupId);
     console.log(`Socket ${socket.id} joined group ${groupId}`);

@@ -183,8 +183,67 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final String titleText = widget.group.title;
+    final ImageProvider<Object>? headerImage = widget.group.groupImage != null
+        ? NetworkImage(AppConfig.absoluteUrl(widget.group.groupImage!))
+        : (widget.group.directProfilePicUrl != null &&
+              widget.group.directProfilePicUrl!.trim().isNotEmpty)
+        ? NetworkImage(AppConfig.absoluteUrl(widget.group.directProfilePicUrl!))
+        : null;
+
     return AlertDialog(
-      title: Text(widget.group.name),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+      contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: theme.colorScheme.primary,
+            backgroundImage: headerImage,
+            child: headerImage == null
+                ? Text(
+                    titleText.isNotEmpty
+                        ? titleText.trim().characters.first.toUpperCase()
+                        : 'G',
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titleText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Created: ${DateFormatter.formatDate(widget.group.createdAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _isUpdating ? null : () => Navigator.pop(context),
+            tooltip: 'Close',
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: _isLoading
@@ -194,174 +253,222 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Created: ${DateFormatter.formatDate(widget.group.createdAt)}',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Members (${_members.length})',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 260),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: _members.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final member = _members[index];
-                          final isAdmin = member.id == widget.group.adminId;
-
-                          return ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: theme.colorScheme.primary,
-                              backgroundImage: member.profilePicture != null
-                                  ? NetworkImage(
-                                      AppConfig.absoluteUrl(
-                                        member.profilePicture!,
-                                      ),
-                                    )
-                                  : null,
-                              child: member.profilePicture == null
-                                  ? Text(
-                                      member.getInitials(),
-                                      style: TextStyle(
-                                        color: theme.colorScheme.onPrimary,
-                                        fontSize: 10,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            title: Text(
-                              member.fullName.isNotEmpty
-                                  ? member.fullName
-                                  : member.email,
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            subtitle: member.fullName.isNotEmpty
-                                ? Text(
-                                    member.email,
-                                    style: theme.textTheme.bodySmall,
-                                  )
-                                : null,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                if (isAdmin)
-                                  Icon(
-                                    Icons.admin_panel_settings,
-                                    size: 18,
-                                    color: theme.colorScheme.primary,
+                                Text(
+                                  'Members',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                if (_showAdminControls && !isAdmin)
-                                  IconButton(
-                                    onPressed: _isUpdating
-                                        ? null
-                                        : () => _kickMember(member),
-                                    icon: Icon(
-                                      Icons.person_remove,
-                                      color: theme.colorScheme.error,
-                                    ),
-                                    tooltip: 'Remove from group',
-                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '(${_members.length})',
+                                  style: theme.textTheme.bodySmall,
+                                ),
                               ],
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (_showAdminControls) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Add friends',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _searchController,
-                        textInputAction: TextInputAction.search,
-                        onChanged: (value) {
-                          setState(() => _searchQuery = value);
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Search friends',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchQuery.trim().isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                  icon: const Icon(Icons.clear),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 220),
-                        child: _memberCandidates.isEmpty
-                            ? Text(
-                                'No friends to add',
-                                style: theme.textTheme.bodySmall,
-                              )
-                            : ListView.builder(
+                            const SizedBox(height: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 260),
+                              child: ListView.separated(
                                 shrinkWrap: true,
-                                itemCount: _memberCandidates.length,
+                                itemCount: _members.length,
+                                separatorBuilder: (_, __) =>
+                                    const Divider(height: 1),
                                 itemBuilder: (context, index) {
-                                  final user = _memberCandidates[index];
-                                  final id = int.tryParse(user.id);
-                                  final checked =
-                                      id != null && _selectedToAdd.contains(id);
+                                  final member = _members[index];
+                                  final isAdmin =
+                                      member.id == widget.group.adminId;
 
-                                  return CheckboxListTile(
+                                  return ListTile(
                                     dense: true,
                                     contentPadding: EdgeInsets.zero,
-                                    value: checked,
-                                    title: Text(
-                                      user.fullName.isNotEmpty
-                                          ? user.fullName
-                                          : user.email,
+                                    leading: CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor:
+                                          theme.colorScheme.primary,
+                                      backgroundImage:
+                                          member.profilePicture != null
+                                          ? NetworkImage(
+                                              AppConfig.absoluteUrl(
+                                                member.profilePicture!,
+                                              ),
+                                            )
+                                          : null,
+                                      child: member.profilePicture == null
+                                          ? Text(
+                                              member.getInitials(),
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onPrimary,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            )
+                                          : null,
                                     ),
-                                    subtitle: user.fullName.isNotEmpty
-                                        ? Text(user.email)
+                                    title: Text(
+                                      member.fullName.isNotEmpty
+                                          ? member.fullName
+                                          : member.email,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    subtitle: member.fullName.isNotEmpty
+                                        ? Text(
+                                            member.email,
+                                            style: theme.textTheme.bodySmall,
+                                          )
                                         : null,
-                                    onChanged: (id == null || _isUpdating)
-                                        ? null
-                                        : (selected) {
-                                            setState(() {
-                                              if (selected == true) {
-                                                _selectedToAdd.add(id);
-                                              } else {
-                                                _selectedToAdd.remove(id);
-                                              }
-                                            });
-                                          },
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isAdmin)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 4,
+                                            ),
+                                            child: Chip(
+                                              label: const Text('Admin'),
+                                              labelStyle:
+                                                  theme.textTheme.bodySmall,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ),
+                                        if (_showAdminControls && !isAdmin)
+                                          IconButton(
+                                            onPressed: _isUpdating
+                                                ? null
+                                                : () => _kickMember(member),
+                                            icon: Icon(
+                                              Icons.person_remove,
+                                              color: theme.colorScheme.error,
+                                            ),
+                                            tooltip: 'Remove from group',
+                                          ),
+                                      ],
+                                    ),
                                   );
                                 },
                               ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_showAdminControls) ...[
+                      const SizedBox(height: 12),
+                      Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Add friends',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _searchController,
+                                textInputAction: TextInputAction.search,
+                                onChanged: (value) {
+                                  setState(() => _searchQuery = value);
+                                },
+                                decoration: InputDecoration(
+                                  hintText: 'Search friends',
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: _searchQuery.trim().isEmpty
+                                      ? null
+                                      : IconButton(
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            setState(() => _searchQuery = '');
+                                          },
+                                          icon: const Icon(Icons.clear),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxHeight: 220,
+                                ),
+                                child: _memberCandidates.isEmpty
+                                    ? Text(
+                                        'No friends to add',
+                                        style: theme.textTheme.bodySmall,
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount: _memberCandidates.length,
+                                        itemBuilder: (context, index) {
+                                          final user = _memberCandidates[index];
+                                          final id = int.tryParse(user.id);
+                                          final checked =
+                                              id != null &&
+                                              _selectedToAdd.contains(id);
+
+                                          return CheckboxListTile(
+                                            dense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                            value: checked,
+                                            title: Text(
+                                              user.fullName.isNotEmpty
+                                                  ? user.fullName
+                                                  : user.email,
+                                            ),
+                                            subtitle: user.fullName.isNotEmpty
+                                                ? Text(user.email)
+                                                : null,
+                                            onChanged:
+                                                (id == null || _isUpdating)
+                                                ? null
+                                                : (selected) {
+                                                    setState(() {
+                                                      if (selected == true) {
+                                                        _selectedToAdd.add(id);
+                                                      } else {
+                                                        _selectedToAdd.remove(
+                                                          id,
+                                                        );
+                                                      }
+                                                    });
+                                                  },
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isUpdating ? null : () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
         if (_showAdminControls)
-          TextButton(
+          FilledButton(
             onPressed: (_isUpdating || _selectedToAdd.isEmpty)
                 ? null
                 : _addSelectedMembers,
@@ -371,10 +478,7 @@ class _GroupInfoDialogState extends State<GroupInfoDialog> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    'Add selected',
-                    style: TextStyle(color: theme.colorScheme.primary),
-                  ),
+                : Text('Add selected'),
           ),
         if (_showAdminControls)
           TextButton(

@@ -116,6 +116,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
       _socketService.socket.off("connect");
       _socketService.socket.off("disconnect");
       _socketService.socket.off("connect_error");
+      _socketService.socket.off("group_created");
+      _socketService.socket.off("group_added");
+      _socketService.socket.off("group_deleted");
 
       _socketService.socket.on("connect", (_) {
         if (!mounted) return;
@@ -134,6 +137,20 @@ class _MainChatScreenState extends State<MainChatScreen> {
         setState(() => _isSocketConnected = false);
         debugPrint('Socket connect_error: $err');
       });
+
+      Future<void> refreshGroups() async {
+        try {
+          await _chatManager.loadChatGroups();
+          if (!mounted) return;
+          setState(() {});
+        } catch (e) {
+          debugPrint('Failed to refresh groups after socket event: $e');
+        }
+      }
+
+      _socketService.socket.on("group_created", (_) => refreshGroups());
+      _socketService.socket.on("group_added", (_) => refreshGroups());
+      _socketService.socket.on("group_deleted", (_) => refreshGroups());
     } catch (e) {
       debugPrint('Socket connection failed: $e');
     }
@@ -308,18 +325,31 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 backgroundColor: theme.colorScheme.primary,
                 backgroundImage: group.groupImage != null
                     ? NetworkImage(AppConfig.absoluteUrl(group.groupImage!))
+                    : (group.directProfilePicUrl != null &&
+                          group.directProfilePicUrl!.trim().isNotEmpty)
+                    ? NetworkImage(
+                        AppConfig.absoluteUrl(group.directProfilePicUrl!),
+                      )
                     : null,
-                child: group.groupImage == null
-                    ? Text(
-                        group.name[0].toUpperCase(),
+                child:
+                    (group.memberCount == 2 ||
+                        group.groupImage != null ||
+                        (group.directProfilePicUrl != null &&
+                            group.directProfilePicUrl!.trim().isNotEmpty))
+                    ? null
+                    : Text(
+                        (group.title.isNotEmpty ? group.title : group.name)
+                            .trim()
+                            .characters
+                            .first
+                            .toUpperCase(),
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: theme.colorScheme.onPrimary,
                         ),
-                      )
-                    : null,
+                      ),
               ),
               title: Text(
-                group.name,
+                group.title,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               onTap: () => _openChatRoom(context, group),

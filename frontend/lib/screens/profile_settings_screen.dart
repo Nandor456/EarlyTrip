@@ -167,7 +167,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 64),
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -176,6 +176,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.error,
                   foregroundColor: theme.colorScheme.onError,
+                  padding: const EdgeInsets.all(12),
                 ),
                 child: const Text(
                   'Logout',

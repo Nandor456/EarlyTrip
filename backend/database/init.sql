@@ -75,7 +75,7 @@ ALTER TABLE IF EXISTS public.group_memberships
     ADD CONSTRAINT "group_membership_group_id_FK" FOREIGN KEY (group_id)
     REFERENCES public.chat_groups (group_id) MATCH SIMPLE
     ON UPDATE NO ACTION
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     NOT VALID;
 
 
@@ -93,7 +93,7 @@ ALTER TABLE IF EXISTS public.messages
     ADD CONSTRAINT "messages_group_id_FK" FOREIGN KEY (group_id)
     REFERENCES public.chat_groups (group_id) MATCH SIMPLE
     ON UPDATE NO ACTION
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     NOT VALID;
 
 

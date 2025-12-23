@@ -190,7 +190,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.group.name),
+            Text(widget.group.title),
             if (_typingIndicator.isNotEmpty)
               Text(
                 _typingIndicator,
