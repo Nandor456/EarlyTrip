@@ -3,12 +3,15 @@ import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/models/chat_group.dart';
 import 'package:frontend/screens/chat_room_screen.dart';
 import 'package:frontend/screens/profile_settings_screen.dart';
+import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/token_service.dart';
 import 'package:frontend/widgets/create_group_dialog.dart';
 import 'package:frontend/services/socket_service.dart';
 import 'package:frontend/config/app_config.dart';
 import 'package:frontend/screens/friends_screen.dart';
 import 'package:frontend/screens/notifications_screen.dart';
+import 'package:frontend/utils/theme.dart';
+import 'package:provider/provider.dart';
 
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -24,6 +27,8 @@ class _MainChatScreenState extends State<MainChatScreen> {
   String _errorMessage = '';
   bool _isSocketConnected = false;
   int _selectedTabIndex = 0;
+
+  bool _isForcingLogout = false;
 
   @override
   void initState() {
@@ -45,6 +50,18 @@ class _MainChatScreenState extends State<MainChatScreen> {
       debugPrint(
         'Current user initialized: ${_chatManager.currentUser?.firstName}',
       );
+
+      if (mounted) {
+        final themeProvider = Provider.of<ThemeProvider>(
+          context,
+          listen: false,
+        );
+        final userTheme = _chatManager.currentUser?.isDarkTheme;
+        if (userTheme != null) {
+          themeProvider.setTheme(userTheme);
+        }
+      }
+
       await _chatManager.loadChatGroups();
       debugPrint(
         'Chat groups loaded: ${_chatManager.chatGroups.length} groups',
@@ -57,14 +74,32 @@ class _MainChatScreenState extends State<MainChatScreen> {
         setState(() => _errorMessage = e.toString());
       }
 
-      if (e.toString().contains('Authentication failed')) {
-        _handleAuthenticationFailure();
-      }
+      // Fail closed: any exception forces logout, but only once.
+      await _forceLogout();
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _forceLogout() async {
+    if (_isForcingLogout) return;
+    _isForcingLogout = true;
+
+    try {
+      await ApiService.logout();
+    } catch (_) {
+      // Ignore token clearing errors; still navigate away.
+    }
+
+    _chatManager.clearCache();
+    _socketService.disconnect();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    });
   }
 
   Future<void> _initializeSocket() async {
@@ -102,23 +137,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
     } catch (e) {
       debugPrint('Socket connection failed: $e');
     }
-  }
-
-  void _handleAuthenticationFailure() {
-    _chatManager.clearCache();
-    _socketService.disconnect();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Session expired. Please login again.'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
-    });
   }
 
   Future<void> _refreshData() async {

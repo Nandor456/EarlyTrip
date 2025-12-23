@@ -75,6 +75,62 @@ class ApiService {
     return response;
   }
 
+  static Future<http.Response> authenticatedMultipartRequest(
+    String endpoint, {
+    required http.MultipartFile file,
+    Map<String, String>? fields,
+    Map<String, String>? additionalHeaders,
+  }) async {
+    String? accessToken = await TokenService.getAccessToken();
+    if (accessToken == null) {
+      throw AuthException('No access token found. Please login again.');
+    }
+
+    Future<http.Response> sendWithToken(String token) async {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final request = http.MultipartRequest('POST', uri);
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        ...?additionalHeaders,
+      });
+      request.fields.addAll(fields ?? const {});
+      request.files.add(file);
+
+      final streamed = await request.send().timeout(_defaultTimeout);
+      return http.Response.fromStream(streamed);
+    }
+
+    http.Response response = await sendWithToken(accessToken);
+
+    if (response.statusCode == 401) {
+      try {
+        final responseBody = json.decode(response.body);
+        final errorCode = responseBody is Map ? responseBody['code'] : null;
+
+        if (errorCode == 'TOKEN_EXPIRED') {
+          final refreshed = await _refreshToken();
+          if (refreshed) {
+            accessToken = await TokenService.getAccessToken();
+            if (accessToken == null) {
+              throw AuthException('Session expired. Please login again.');
+            }
+            response = await sendWithToken(accessToken);
+          } else {
+            throw AuthException('Session expired. Please login again.');
+          }
+        } else {
+          throw AuthException('Authentication failed. Please login again.');
+        }
+      } catch (e) {
+        if (e is AuthException) rethrow;
+        throw AuthException('Authentication error occurred.');
+      }
+    }
+
+    return response;
+  }
+
   static Future<http.Response> _makeHttpRequest(
     String endpoint,
     String method,

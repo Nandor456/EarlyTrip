@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/login.dart';
 import 'screens/register.dart';
 import 'services/token_service.dart';
+import 'services/api_service.dart';
 import 'package:provider/provider.dart';
 import 'utils/theme.dart';
 import 'screens/main_chat_screen.dart';
@@ -55,13 +56,22 @@ class _HomePageState extends State<HomePage> {
   Future<void> _checkExistingLogin() async {
     try {
       final isLoggedIn = await TokenService.isLoggedIn();
-      if (isLoggedIn && mounted) {
+      if (!isLoggedIn || !mounted) return;
+      final response = await ApiService.authenticatedRequest('/users/profile');
+      if (!mounted) return;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainChatScreen()),
         );
+      } else {
+        await ApiService.logout();
       }
     } catch (e) {
+      try {
+        await ApiService.logout();
+      } catch (_) {}
       print('Error checking login status: $e');
     }
   }

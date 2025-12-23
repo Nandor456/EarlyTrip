@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/socket_service.dart';
 import 'package:frontend/utils/theme.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/config/app_config.dart';
+import 'package:frontend/services/user_api_service.dart';
+import 'package:frontend/models/user.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -20,6 +25,14 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   final ChatDataManager _chatManager = ChatDataManager();
   bool _isSaving = false;
 
+  bool _themeInitialized = false;
+  bool _pendingIsDarkTheme = false;
+
+  final ImagePicker _picker = ImagePicker();
+  File? _pendingProfileImage;
+
+  bool _isForcingLogout = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,9 +43,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_themeInitialized) {
+      final themeProvider = Provider.of<ThemeProvider>(context);
+      _pendingIsDarkTheme = themeProvider.isDarkTheme;
+      _themeInitialized = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = Theme.of(context);
+    final currentUser = _chatManager.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -63,17 +87,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: theme.colorScheme.primary,
-                    backgroundImage:
-                        _chatManager.currentUser?.profilePicture != null
+                    backgroundImage: _pendingProfileImage != null
+                        ? FileImage(_pendingProfileImage!)
+                        : currentUser?.profilePicture != null
                         ? NetworkImage(
-                            AppConfig.absoluteUrl(
-                              _chatManager.currentUser!.profilePicture!,
-                            ),
+                            AppConfig.absoluteUrl(currentUser!.profilePicture!),
                           )
                         : null,
-                    child: _chatManager.currentUser?.profilePicture == null
+                    child:
+                        (_pendingProfileImage == null &&
+                            currentUser?.profilePicture == null)
                         ? Text(
-                            _chatManager.currentUser?.getInitials() ?? 'U',
+                            currentUser?.getInitials() ?? 'U',
                             style: TextStyle(
                               fontSize: 30,
                               color: theme.colorScheme.onPrimary,
@@ -132,8 +157,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     const SizedBox(height: 16),
                     SwitchListTile(
                       title: const Text('Dark Theme'),
-                      value: themeProvider.isDarkTheme,
-                      onChanged: (value) => themeProvider.setTheme(value),
+                      value: _pendingIsDarkTheme,
+                      onChanged: (value) {
+                        setState(() => _pendingIsDarkTheme = value);
+                      },
                       activeThumbColor: theme.colorScheme.primary,
                     ),
                   ],
@@ -175,17 +202,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ListTile(
               leading: Icon(Icons.photo_library, color: theme.iconTheme.color),
               title: const Text('Choose from Gallery'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                _showErrorSnackBar('Gallery selection not yet implemented');
+                await _pickProfileImage(ImageSource.gallery);
               },
             ),
             ListTile(
               leading: Icon(Icons.camera_alt, color: theme.iconTheme.color),
               title: const Text('Take Photo'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                _showErrorSnackBar('Camera capture not yet implemented');
+                await _pickProfileImage(ImageSource.camera);
               },
             ),
           ],
@@ -194,26 +221,83 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
+  Future<void> _pickProfileImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 75);
+      if (picked == null) return;
+
+      setState(() {
+        _pendingProfileImage = File(picked.path);
+      });
+    } catch (e) {
+      _showErrorSnackBar('Failed to pick image: $e');
+    }
+  }
+
   Future<void> _saveProfile() async {
     setState(() => _isSaving = true);
 
     try {
-      // TODO: Implement profile update API call
-      // final updatedUser = await ChatApiService.updateUserProfile(
-      //   firstName: _firstNameController.text.trim(),
-      //   lastName: _lastNameController.text.trim(),
-      // );
-      // if (updatedUser != null) {
-      //   _showSuccessSnackBar('Profile updated successfully');
-      // } else {
-      //   _showErrorSnackBar('Failed to update profile');
-      // }
-      _showErrorSnackBar('Profile update not yet implemented');
+      final userApi = UserApiService();
+
+      if (_pendingProfileImage != null) {
+        final uploaded = await userApi.uploadProfilePicture(
+          _pendingProfileImage!,
+        );
+        final updatedUserJson = uploaded['user'];
+        if (updatedUserJson is Map) {
+          _chatManager.updateCurrentUser(
+            User.fromJson(updatedUserJson.cast<String, dynamic>()),
+          );
+        }
+      }
+
+      final updated = await userApi.updateProfile(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        isDarkTheme: _pendingIsDarkTheme,
+      );
+
+      final updatedUserJson = updated['user'];
+      if (updatedUserJson is Map) {
+        final user = User.fromJson(updatedUserJson.cast<String, dynamic>());
+        _chatManager.updateCurrentUser(user);
+        _firstNameController.text = user.firstName;
+        _lastNameController.text = user.lastName;
+      }
+
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      themeProvider.setTheme(_pendingIsDarkTheme);
+
+      if (mounted) {
+        setState(() => _pendingProfileImage = null);
+      }
+
+      _showSuccessSnackBar('Settings saved');
     } catch (e) {
-      _showErrorSnackBar('Error updating profile: $e');
+      await _forceLogout();
     } finally {
       setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _forceLogout() async {
+    if (_isForcingLogout) return;
+    _isForcingLogout = true;
+
+    try {
+      await ApiService.logout();
+    } catch (_) {
+      // Ignore; still proceed.
+    }
+
+    _chatManager.clearCache();
+    SocketService().disconnect();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    });
   }
 
   Future<void> _logout() async {

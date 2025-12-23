@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.users
     phone character varying(15) COLLATE pg_catalog."default",
     password text COLLATE pg_catalog."default",
     profile_pic_url text COLLATE pg_catalog."default",
+    is_dark_theme boolean NOT NULL DEFAULT true,
     CONSTRAINT users_pkey PRIMARY KEY (user_id)
 );
 

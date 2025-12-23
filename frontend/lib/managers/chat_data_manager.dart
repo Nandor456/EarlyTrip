@@ -19,6 +19,22 @@ class ChatDataManager {
   List<ChatGroup> get chatGroups => List.unmodifiable(_chatGroups);
   List<User> get allUsers => List.unmodifiable(_allUsers);
 
+  void updateCurrentUser(User user) {
+    _currentUser = user;
+
+    final idx = _allUsers.indexWhere((u) => u.id == user.id);
+    if (idx != -1) {
+      _allUsers[idx] = user;
+    }
+
+    for (final members in _groupMembersCache.values) {
+      final i = members.indexWhere((u) => u.id == user.id);
+      if (i != -1) {
+        members[i] = user;
+      }
+    }
+  }
+
   Future<void> initializeCurrentUser() async {
     try {
       debugPrint('getting current user...');

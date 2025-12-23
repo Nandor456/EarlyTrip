@@ -22,7 +22,7 @@ export function getUser(req, res) {
   const userId = req.user.user_id;
   console.log("Fetching profile for user ID:", userId);
   pool.query(
-    "SELECT user_id, first_name, last_name, email, profile_pic_url FROM users WHERE user_id = $1",
+    "SELECT user_id, first_name, last_name, email, profile_pic_url, is_dark_theme FROM users WHERE user_id = $1",
     [userId],
     (error, results) => {
       if (error) {
@@ -36,6 +36,79 @@ export function getUser(req, res) {
       res.status(200).json({ user: results.rows[0] });
     }
   );
+}
+
+export async function updateUserProfile(req, res) {
+  const userId = req.user.user_id;
+  const firstName =
+    req.body?.firstName !== undefined ? String(req.body.firstName).trim() : undefined;
+  const lastName =
+    req.body?.lastName !== undefined ? String(req.body.lastName).trim() : undefined;
+
+  const rawIsDarkTheme = req.body?.isDarkTheme;
+  const isDarkTheme =
+    rawIsDarkTheme === undefined
+      ? undefined
+      : typeof rawIsDarkTheme === "boolean"
+        ? rawIsDarkTheme
+        : String(rawIsDarkTheme).toLowerCase() === "true";
+
+  if (firstName === undefined && lastName === undefined && isDarkTheme === undefined) {
+    return res
+      .status(400)
+      .json({ message: "firstName, lastName and/or isDarkTheme is required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE users
+      SET
+        first_name = COALESCE($2, first_name),
+        last_name = COALESCE($3, last_name),
+        is_dark_theme = COALESCE($4, is_dark_theme)
+      WHERE user_id = $1
+      RETURNING user_id, first_name, last_name, email, profile_pic_url, is_dark_theme
+      `,
+      [userId, firstName ?? null, lastName ?? null, isDarkTheme ?? null]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user: result.rows[0] });
+  } catch (error) {
+    return res.status(500).json({ message: "Database query error", error });
+  }
+}
+
+export async function updateProfilePicture(req, res) {
+  const userId = req.user.user_id;
+
+  if (!req.file?.path) {
+    return res.status(400).json({ message: "profilePic file is required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE users
+      SET profile_pic_url = $2
+      WHERE user_id = $1
+      RETURNING user_id, first_name, last_name, email, profile_pic_url, is_dark_theme
+      `,
+      [userId, req.file.path]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user: result.rows[0] });
+  } catch (error) {
+    return res.status(500).json({ message: "Database query error", error });
+  }
 }
 
 export async function searchUsers(req, res) {
