@@ -166,4 +166,68 @@ class ChatApiService {
       throw Exception('Error loading group members: $e');
     }
   }
+
+  static Future<void> addGroupMembers(String groupId, List<int> memberIds) async {
+    try {
+      final body = {'memberIds': memberIds};
+      final response = await ApiService.authenticatedRequest(
+        '/groups/$groupId/members',
+        method: 'POST',
+        body: body,
+      );
+      ApiResponseHandler.handleResponse(response, (data) => data);
+    } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
+      throw Exception('Error adding group members: $e');
+    }
+  }
+
+  static Future<void> removeGroupMembers(
+    String groupId,
+    List<int> memberIds,
+  ) async {
+    try {
+      final body = {'memberIds': memberIds};
+      final response = await ApiService.authenticatedRequest(
+        '/groups/$groupId/members',
+        method: 'DELETE',
+        body: body,
+      );
+      ApiResponseHandler.handleResponse(response, (data) => data);
+    } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
+      throw Exception('Error removing group members: $e');
+    }
+  }
+
+  static Future<void> deleteGroup(String groupId) async {
+    try {
+      final response = await ApiService.authenticatedRequest(
+        '/groups/$groupId',
+        method: 'DELETE',
+      );
+      ApiResponseHandler.handleResponse(response, (data) => data);
+    } catch (e) {
+      if (e is AuthException) {
+        throw Exception('Authentication failed: ${e.message}');
+      } else if (e is NetworkException) {
+        throw Exception('Network error: ${e.message}');
+      } else if (e is ApiException) {
+        throw Exception('API error: ${e.message}');
+      }
+      throw Exception('Error deleting group: $e');
+    }
+  }
 }

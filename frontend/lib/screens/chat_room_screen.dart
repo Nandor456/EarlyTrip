@@ -6,8 +6,7 @@ import 'package:frontend/models/message.dart';
 import 'package:frontend/services/chat_api_service.dart';
 import 'package:frontend/services/socket_service.dart';
 import 'package:frontend/widgets/message_bubble.dart';
-import 'package:frontend/utils/date_fomatter.dart';
-import 'package:frontend/config/app_config.dart';
+import 'package:frontend/widgets/group_info_dialog.dart';
 
 class ChatRoomScreen extends StatefulWidget {
   final ChatGroup group;
@@ -185,6 +184,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isAdmin = widget.group.adminId == _chatManager.currentUser?.id;
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -219,21 +219,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               size: 12,
             ),
           ),
-          PopupMenuButton(
+
+          PopupMenuButton<String>(
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'info', child: Text('Group Info')),
-              if (widget.group.adminId == _chatManager.currentUser?.id)
-                const PopupMenuItem(
-                  value: 'manage',
-                  child: Text('Manage Group'),
-                ),
+              PopupMenuItem(
+                value: 'info',
+                child: Text(isAdmin ? 'Manage Group' : 'Group Info'),
+              ),
             ],
             onSelected: (value) {
-              if (value == 'info') {
-                _showGroupInfo(context);
-              } else if (value == 'manage') {
-                _showGroupManagement(context);
-              }
+              _showGroupInfo(context, showAdminControls: isAdmin);
             },
           ),
         ],
@@ -410,186 +405,25 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
-  void _showGroupInfo(BuildContext context) {
-    final theme = Theme.of(context);
+  void _showGroupInfo(BuildContext context, {required bool showAdminControls}) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(widget.group.name),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Created: ${DateFormatter.formatDate(widget.group.createdAt)}',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Members (${_groupMembers.length}):',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ..._groupMembers.map(
-                (member) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: theme.colorScheme.primary,
-                        backgroundImage: member.profilePicture != null
-                            ? NetworkImage(
-                                AppConfig.absoluteUrl(member.profilePicture!),
-                              )
-                            : null,
-                        child: member.profilePicture == null
-                            ? Text(
-                                member.getInitials(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          member.fullName.isNotEmpty
-                              ? member.fullName
-                              : member.email,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
-                      if (member.id == widget.group.adminId)
-                        Icon(
-                          Icons.admin_panel_settings,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Close',
-              style: TextStyle(color: theme.colorScheme.primary),
-            ),
-          ),
-        ],
+      builder: (dialogContext) => GroupInfoDialog(
+        group: widget.group,
+        initialMembers: _groupMembers,
+        isAdmin: widget.group.adminId == _chatManager.currentUser?.id,
+        showAdminControls: showAdminControls,
+        onMembersChanged: (members) {
+          if (!mounted) return;
+          setState(() => _groupMembers = members);
+        },
+        onGroupDeleted: () {
+          if (!mounted) return;
+          // Close the chat room after deletion.
+          Navigator.of(context).pop();
+        },
       ),
     );
-  }
-
-  void _showGroupManagement(BuildContext context) {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Group Management'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.person_add, color: theme.iconTheme.color),
-              title: const Text('Add Members'),
-              onTap: () {
-                Navigator.pop(context);
-                _showErrorSnackBar('Add members feature not yet implemented');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.person_remove, color: theme.iconTheme.color),
-              title: const Text('Remove Members'),
-              onTap: () {
-                Navigator.pop(context);
-                _showErrorSnackBar(
-                  'Remove members feature not yet implemented',
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.edit, color: theme.iconTheme.color),
-              title: const Text('Edit Group Info'),
-              onTap: () {
-                Navigator.pop(context);
-                _showErrorSnackBar('Edit group feature not yet implemented');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete, color: theme.colorScheme.error),
-              title: Text(
-                'Delete Group',
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteGroupDialog(context);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Close',
-              style: TextStyle(color: theme.colorScheme.primary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteGroupDialog(BuildContext context) {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Group'),
-        content: const Text(
-          'Are you sure you want to delete this group? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: theme.colorScheme.primary),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteGroup();
-            },
-            child: Text(
-              'Delete',
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteGroup() async {
-    try {
-      _showErrorSnackBar('Delete group feature not yet implemented');
-    } catch (e) {
-      _showErrorSnackBar('Error deleting group: $e');
-    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -599,13 +433,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         content: Text(message),
         backgroundColor: Theme.of(context).colorScheme.error,
       ),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
     );
   }
 

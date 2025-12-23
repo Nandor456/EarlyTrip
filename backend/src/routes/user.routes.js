@@ -1,6 +1,7 @@
 import express from "express";
 import {
 	getAllUsers,
+	getFriends,
 	getNotifications,
 	getUser,
 	searchUsers,
@@ -11,6 +12,7 @@ import {
 const router = express.Router();
 
 router.get("/", getAllUsers);
+router.get("/friends", getFriends);
 router.get("/search", searchUsers);
 router.get("/notifications", getNotifications);
 router.get("/profile", getUser);

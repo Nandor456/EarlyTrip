@@ -102,9 +102,17 @@ class ApiService {
               )
               .timeout(_defaultTimeout);
         case 'DELETE':
-          return await http
-              .delete(uri, headers: headers)
-              .timeout(_defaultTimeout);
+          if (body == null) {
+            return await http
+                .delete(uri, headers: headers)
+                .timeout(_defaultTimeout);
+          }
+
+          final request = http.Request('DELETE', uri);
+          request.headers.addAll(headers);
+          request.body = json.encode(body);
+          final streamed = await request.send().timeout(_defaultTimeout);
+          return await http.Response.fromStream(streamed);
         case 'PATCH':
           return await http
               .patch(

@@ -4,6 +4,21 @@ import 'package:frontend/models/user.dart';
 import 'package:frontend/services/api_service.dart';
 
 class FriendsApiService {
+  static Future<List<User>> getFriends() async {
+    final response = await ApiService.authenticatedRequest('/users/friends');
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      final friends = (data['friends'] as List<dynamic>? ?? [])
+          .map((e) => User.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return friends;
+    }
+
+    final message = _tryReadMessage(response.body) ?? 'Failed to load friends';
+    throw ApiException(message, response.statusCode);
+  }
+
   static Future<List<UserSearchResult>> searchUsers(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return [];

@@ -125,36 +125,84 @@ export function getGroupMembers(req, res) {
 export function addMembersToGroup(req, res) {
   const groupId = req.params.group_id;
   const { memberIds } = req.body;
+
+  if (!Array.isArray(memberIds) || memberIds.length === 0) {
+    return res.status(400).json({ message: "memberIds array is required" });
+  }
+
+  const ids = memberIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  if (ids.length === 0) {
+    return res.status(400).json({ message: "memberIds must contain valid numeric IDs" });
+  }
+
   const query = `
         INSERT INTO group_memberships (group_id, user_id)
-        VALUES ($1, $2)
+        SELECT $1, unnest($2::int[])
+        ON CONFLICT (group_id, user_id) DO NOTHING
         `;
-  const membershipValues = memberIds.map((id) => [groupId, id]);
-  pool.query(query, membershipValues.flat(), (err) => {
+
+  pool.query(query, [groupId, ids], (err) => {
     if (err) {
       console.error("Error adding members to group:", err);
       return res.status(500).json({ message: "Internal server error" });
     }
-    console.log("Members added to group:", groupId, memberIds);
+    console.log("Members added to group:", groupId, ids);
     res.status(200).json({ message: "Members added successfully" });
   });
 }
 export function removeMembersFromGroup(req, res) {
   const groupId = req.params.group_id;
   const { memberIds } = req.body;
-  const query = `
-        DELETE FROM group_memberships
-        WHERE group_id = $1 AND user_id = $2
-        `;
-  const membershipValues = memberIds.map((id) => [groupId, id]);
-  pool.query(query, membershipValues.flat(), (err) => {
-    if (err) {
-      console.error("Error removing members from group:", err);
-      return res.status(500).json({ message: "Internal server error" });
+
+  if (!Array.isArray(memberIds) || memberIds.length === 0) {
+    return res.status(400).json({ message: "memberIds array is required" });
+  }
+
+  const ids = memberIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  if (ids.length === 0) {
+    return res.status(400).json({ message: "memberIds must contain valid numeric IDs" });
+  }
+
+  // Prevent removing the group admin.
+  pool.query(
+    `
+    SELECT admin_id
+    FROM chat_groups
+    WHERE group_id = $1
+    LIMIT 1
+    `,
+    [groupId],
+    (err, result) => {
+      if (err) {
+        console.error("Error checking group admin:", err);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+
+      const adminId = Number(result.rows[0].admin_id);
+      const filtered = ids.filter((id) => id !== adminId);
+      if (filtered.length === 0) {
+        return res.status(400).json({ message: "Cannot remove group admin" });
+      }
+
+      const query = `
+            DELETE FROM group_memberships
+            WHERE group_id = $1
+              AND user_id = ANY($2::int[])
+            `;
+
+      pool.query(query, [groupId, filtered], (err) => {
+        if (err) {
+          console.error("Error removing members from group:", err);
+          return res.status(500).json({ message: "Internal server error" });
+        }
+        console.log("Members removed from group:", groupId, filtered);
+        res.status(200).json({ message: "Members removed successfully" });
+      });
     }
-    console.log("Members removed from group:", groupId, memberIds);
-    res.status(200).json({ message: "Members removed successfully" });
-  });
+  );
 }
 
 export function deleteChatGroup(req, res) {

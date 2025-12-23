@@ -81,6 +81,33 @@ export async function searchUsers(req, res) {
   }
 }
 
+export async function getFriends(req, res) {
+  const userId = req.user.user_id;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        u.user_id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.profile_pic_url
+      FROM friendships f
+      JOIN users u ON u.user_id = f.friend_id
+      WHERE f.user_id = $1
+        AND f.status = 'accepted'
+      ORDER BY u.first_name ASC
+      `,
+      [userId]
+    );
+
+    return res.status(200).json({ friends: result.rows });
+  } catch (error) {
+    return res.status(500).json({ message: "Database query error", error });
+  }
+}
+
 export async function sendFriendRequest(req, res) {
   const fromUserId = req.user.user_id;
   const targetUserId = req.params.targetUserId;

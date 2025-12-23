@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/managers/chat_data_manager.dart';
 import 'package:frontend/models/user.dart';
+import 'package:frontend/services/friends_api_service.dart';
 import 'package:frontend/services/socket_service.dart';
 
 class CreateGroupDialog extends StatefulWidget {
@@ -14,11 +15,14 @@ class CreateGroupDialog extends StatefulWidget {
 
 class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final TextEditingController _groupNameController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final List<int> _selectedMembers = [];
   final ChatDataManager _chatManager = ChatDataManager();
   List<User> _availableUsers = [];
   bool _isLoading = true;
   bool _isCreating = false;
+
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -29,9 +33,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   Future<void> _loadAvailableUsers() async {
     try {
       setState(() => _isLoading = true);
-      await _chatManager.loadAllUsers();
-      _availableUsers = _chatManager.allUsers
-          .where((user) => user.id != _chatManager.currentUser?.id)
+      final friends = await FriendsApiService.getFriends();
+      final currentUserId = _chatManager.currentUser?.id;
+      _availableUsers = friends
+          .where((user) => currentUserId == null || user.id != currentUserId)
           .toList();
       setState(() => _isLoading = false);
     } catch (e) {
@@ -57,6 +62,15 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final filteredUsers = _searchQuery.trim().isEmpty
+        ? _availableUsers
+        : _availableUsers.where((user) {
+            final q = _searchQuery.trim().toLowerCase();
+            return user.fullName.toLowerCase().contains(q) ||
+                user.email.toLowerCase().contains(q);
+          }).toList();
+
     return AlertDialog(
       title: const Text('Create Group'),
       content: SizedBox(
@@ -70,6 +84,27 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 decoration: const InputDecoration(labelText: 'Group Name'),
               ),
               const SizedBox(height: 16),
+              TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) {
+                  setState(() => _searchQuery = value);
+                },
+                decoration: InputDecoration(
+                  labelText: 'Search friends',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          icon: const Icon(Icons.clear),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -81,15 +116,17 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               if (_isLoading)
                 const CircularProgressIndicator()
               else if (_availableUsers.isEmpty)
-                const Text('No users available')
+                const Text('No friends available')
+              else if (filteredUsers.isEmpty)
+                const Text('No friends match your search')
               else
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 200),
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: _availableUsers.length,
+                    itemCount: filteredUsers.length,
                     itemBuilder: (context, index) {
-                      final user = _availableUsers[index];
+                      final user = filteredUsers[index];
                       final userId = int.tryParse(user.id);
                       return CheckboxListTile(
                         title: Text(
@@ -196,6 +233,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   void dispose() {
     _groupNameController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }
