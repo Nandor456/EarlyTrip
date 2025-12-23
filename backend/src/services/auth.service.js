@@ -23,7 +23,6 @@ export async function userExists(email, password) {
   ]);
 
   if (res.rows.length === 0) {
-    // No user found
     return {
       success: false,
       message: "User not found",
@@ -32,7 +31,6 @@ export async function userExists(email, password) {
 
   const hashedPassword = res.rows[0].password;
 
-  // Compare plaintext password with hashed password
   const match = await bcrypt.compare(password, hashedPassword);
 
   return {

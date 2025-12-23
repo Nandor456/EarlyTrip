@@ -39,7 +39,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       return;
     }
 
-    _debounce = Timer(const Duration(seconds: 2), () {
+    _debounce = Timer(const Duration(seconds: 1), () {
       _runSearch();
     });
   }
